@@ -30,7 +30,8 @@ library(ggplot2)
 
 # 1. Motivation
 
-blablabla [@burez_handling_2009]
+Integration is an important operation in mathematics. Unfortunately, in real life applications one might find it extremely difficult or even impossible to solve certain integrals. Due to the continous improvement in computational power one might address this issue by numercially approximating the integral of interest. In order to do so, several procedures have been developed, each with it's own pros and cons. One may for example use the "Rechteckappromation", the "Trapezapproximation"
+or the in this paper elaborated on Monte Carlo Method. 
 
 # 2. Literature Review
 
