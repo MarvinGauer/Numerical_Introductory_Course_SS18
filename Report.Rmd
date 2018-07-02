@@ -5,6 +5,9 @@ author: "Marvin Gauer (580553)"
 header-includes:
 - \usepackage{titling}
 - \pretitle{\begin{center}\LARGE\includegraphics[width=5cm]{husiegel_bw.png}\\[\bigskipamount]}
+- \title{\vspace{3cm} \Huge Numerical Integration \vspace{3cm}}
+- \preauthor{\centering \Large Numerical Introductory Course \\}
+- \author{\Large Marvin Gauer (580553)}
 - \posttitle{\end{center}}
 
 output: pdf_document
@@ -28,6 +31,10 @@ library(ggplot2)
 \pagenumbering{arabic}
 \setcounter{page}{1}
 
+# 1. Abstract
+
+# 1. Introduction
+
 # 1. Motivation
 
 Integration is an important operation in mathematics. Unfortunately, in real life applications one might find it extremely difficult or even impossible to solve certain integrals. Due to the continous improvement in computational power one might address this issue by numercially approximating the integral of interest. In order to do so, several procedures have been developed, each with it's own pros and cons. One may for example use the "Rechteckappromation", the "Trapezapproximation"
@@ -37,24 +44,39 @@ or the in this paper elaborated on Monte Carlo Method.
 
 lalalala
 
-# 3. Application: Numerical Integration in Finance
+# 3. Theory
+
+In the following section I want to explain some of the most popular methods in numerical integration. These can be distingushed into one and multi-dimensional methods. Furthermore one might distinguesh numerical integration methods further into deterministic and probabilistic methods.
+
+# 3.1 Review: The Riemann Integral
+
+
+
+# 3.2 One-Dimensional Procedures
 
 lalalala
 
-# 4. Theory
+# 3.3 Multi-Dimensional Procedures
 
 lalalala
 
-# 5. Data Description
+# 3.4 Integrals over infinite Intervals
 
 lalalala
 
-# 6. Results of empirical Analysis
+# 4. Application: Approximation of the Normal Distribution
 
 lalalala
 
-# 7. Conclusion
+# 5. Conclusion
 
 lalalala
 
-# 8. Bibliography
+# 6. Bibliography
+
+@Clausthal
+
+
+
+
+

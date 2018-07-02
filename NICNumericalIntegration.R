@@ -30,20 +30,125 @@ l    = -4    # Lower Boundary
 
 # Function to numerically integrate
 pol  = function(x){
-  y  = exp(x) * x^2 + 3*x + 4
+  y  = x^2 + 3*x + 4
   return(y)
 }
 
-n    = 100 # Max Number of Interations
+n    = 100 # Max Number of Iterations
+m    = 10 # Number of Bins
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 # Functions
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
-MonteCarloIntegration = function(x = NULL, FUN = dnorm, n = 100000, graphic = TRUE){
+Crude_MonteCarloIntegration = function(l = NULL, u = NULL, FUN = dnorm, n = 100, m = 10, graphic = TRUE){
   
-  # x contains the x values and FUN is a function
+  # l,u see other functions
+  # n is an integer and represents the number of iterations per bin
+  # and m is the number of bins
+  
+  x = seq(l,u,0.01)
+  
+  # create DataFrame
+  df = data.frame(1.5*x, y = FUN(1.5*x))
+  
+  # create equidistant breaks
+  l      = max(x)-min(x)
+  step   = l/m
+  breaks = seq(min(x),max(x),step)
+  
+  # Generate Random Points
+  mcp_x = runif(n*m, min = min(x), max = max(x))
+  
+  # Calc corresponding y's
+  mcp_y = FUN(mcp_x)
+  
+  # Calc y's mean within bins
+  dfp   = data.frame(mcp_x, mcp_y, "Mean" = vector(length = length(mcp_y)))
+  means = vector(length = length(breaks)-1)
+  
+  for(i in 1:length(breaks)-1){
+    means[i] = mean(dfp$mcp_y[dfp$mcp_x >= breaks[i] & dfp$mcp_x <= breaks[i+1]])
+    dfp$Mean[dfp$mcp_x >= breaks[i] & dfp$mcp_x <= breaks[i+1]] = means[i]
+  }
+  
+  if (graphic == TRUE){
+    
+    rect = data.frame(xr = breaks[2:length(breaks)],
+                      xl = breaks[1:length(breaks)-1],
+                      yu = rep(0,length(breaks)-1),
+                      yo = means)
+    
+    # Visualization of the graph
+    p = ggplot(aes(df[,1], df[,2]), data=df) +
+      geom_line(size = 1) + 
+      theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+            panel.background = element_blank(), 
+            axis.line = element_line(colour = "black", arrow = arrow(length = unit(0.25, "cm")))) +
+      ylab("f(y)") + xlab("x") +
+      geom_point(data = dfp, aes(x = mcp_x, y = mcp_y, col = 'blue'),size = 3,inherit.aes = F, shape = 20, show.legend = F) + 
+      geom_point(data = dfp, aes(x = mcp_x, y = rep(0,length(mcp_x)), col = 'green'),size = 3,inherit.aes = F, shape = 20, show.legend = F) + 
+      geom_rect(data=rect, inherit.aes = F,aes(xmin=rect$xl, 
+                               xmax=rect$xr, 
+                               ymin=rect$yu, 
+                               ymax=rect$yo),
+                fill = 'red', alpha = 0.2, col = 'red')
+    
+    print(p)
+  }
+  
+  sol = rep(step,length(means)) %*% means
+  
+  return(sol)
+}
+
+Crude_MonteCarloIteration = function(l = NULL, u = NULL, FUN = dnorm, n = 100, m = 10, graphic = TRUE){
+  
+  # l,u see other functions
+  # n is an integer and represents the number of iterations (min is 10) per bin
+  # m is the number of bins and is fixed
+  
+  x = seq(l,u,0.01)
+  
+  # Convergence Data.Frame
+  dfg = data.frame("Iteration"     = as.integer(), 
+                   "Approx. Value" = as.numeric(), 
+                   "Real Value"    = as.numeric(),
+                   "Difference"    = as.numeric())
+  
+  for(i in seq(10,n,10)){
+    dfg[nrow(dfg) + 1,] = c(i,
+                            Crude_MonteCarloIntegration(l = l, u = u, FUN = FUN, n = i, m = m, graphic = F),
+                            integrate(pol,min(x),max(x))$value,
+                            integrate(pol,min(x),max(x))$value - Crude_MonteCarloIntegration(l = l, u = u, FUN = FUN, n = i, m = m, graphic = F))
+  }
+  
+  if (graphic == TRUE){
+    
+    # Visualization of the Function
+    Crude_MonteCarloIntegration(l = l, u = u, FUN = FUN, n = n, m = m, graphic = T)
+    
+    # Visualization of the convergence
+    g = ggplot(aes(x = dfg[,1], y = dfg[,2]), data=dfg) +
+      geom_line() + 
+      theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+            panel.background = element_blank(), 
+            axis.line = element_line(colour = "black", arrow = arrow(length = unit(0.25, "cm")))) +
+      geom_line(aes(x = dfg[,1], y = dfg[,3], colour = 'red'), data = dfg, show.legend=F) +
+      xlab("Iterations") + ylab("Area")
+    
+    print(g)
+  }
+  
+  return(dfg)
+}
+
+Hit_Miss_MonteCarloIntegration = function(l = NULL, u = NULL, FUN = dnorm, n = 100000, graphic = TRUE){
+  
+  # l,u see other functions
   # n is an integer and represents the number of iterations
+  
+  x = seq(l,u,0.01)
   
   # create DataFrame
   df = data.frame(1.5*x, y = FUN(1.5*x))
@@ -70,7 +175,7 @@ MonteCarloIntegration = function(x = NULL, FUN = dnorm, n = 100000, graphic = TR
             panel.background = element_blank(), 
             axis.line = element_line(colour = "black", arrow = arrow(length = unit(0.25, "cm")))) +
       geom_point(aes(x=mcp_x, y=mcp_y, colour = Within), data = dfp, size = 1, show.legend=F) + 
-      ylab("f(y)") + xlab("x")
+      ylab("f(y)") + xlab("x") 
     
     print(p)
   }
@@ -81,10 +186,13 @@ MonteCarloIntegration = function(x = NULL, FUN = dnorm, n = 100000, graphic = TR
   return(sol)
 }
 
-MonteCarloIteration = function(x = NULL, FUN = dnorm, n = 100000, graphic = TRUE){
+Hit_Miss_MonteCarloIteration = function(l = NULL, u = NULL, FUN = dnorm, n = 100000, graphic = TRUE){
   
+  # l,u see other functions
   # x contains the x values and FUN is a function
   # n is an integer and represents the number of iterations (min is 10)
+  
+  x = seq(l,u,0.01)
   
   # Convergence Data.Frame
   dfg = data.frame("Iteration"     = as.integer(), 
@@ -94,15 +202,15 @@ MonteCarloIteration = function(x = NULL, FUN = dnorm, n = 100000, graphic = TRUE
   
   for(i in seq(10,n,10)){
     dfg[nrow(dfg) + 1,] = c(i,
-                            MonteCarloIntegration(x = x, FUN = FUN, n = i, graphic = F)$Area,
+                            Hit_Miss_MonteCarloIntegration(l = l, u = u, FUN = FUN, n = i, graphic = F)$Area,
                             integrate(pol,min(x),max(x))$value,
-                            integrate(pol,min(x),max(x))$value - MonteCarloIntegration(seq(l,u,0.01), FUN = pol, n = i, graphic = F)$Area)
+                            integrate(pol,min(x),max(x))$value - Hit_Miss_MonteCarloIntegration(l = l, u = u, FUN = pol, n = i, graphic = F)$Area)
   }
   
   if (graphic == TRUE){
     
     # Visualization of the Function
-    MonteCarloIntegration(x = x, FUN = pol, n = n, graphic = T)
+    Hit_Miss_MonteCarloIntegration(l = l, u = u, FUN = pol, n = n, graphic = T)
     
     # Visualization of the convergence
     g = ggplot(aes(x = dfg[,1], y = dfg[,2]), data=dfg) +
@@ -118,7 +226,6 @@ MonteCarloIteration = function(x = NULL, FUN = dnorm, n = 100000, graphic = TRUE
   
   return(dfg)
 }
-
 
 MidpointIntegration = function(l = NULL, u = NULL, n = 10, FUN = dnorm, graphic = T){
   
@@ -190,18 +297,76 @@ MidpointIteration = function(l = NULL, u = NULL, n = 10, FUN = dnorm, graphic = 
   return(dfg)
 }
 
+#SimpsonIntegration
+
+#AdaptiveIntegration
+
+IntervalShifter = function(FUN = NULL, b = as.vector(length = 2)){
+  
+  if(b[1] == -Inf & b[2] == Inf){
+    y = function(t){
+      z = FUN(t/(1-t^2)) * (1+t^2)/((1-t^2)^2)
+      return(z)
+    }
+  } else if(as.numeric(b[1]) == -Inf & b[2] != Inf){
+    y = function(t){
+      z = FUN(as.numeric(b[1]) - ((1-t)/(t))) * (1)/((t^2))
+      return(z)
+    }
+  } else if(b[1] != -Inf & b[2] == Inf){
+    y = function(t){
+      z = FUN(as.numeric(b[1]) + (t/(1-t))) * (1)/((1-t)^2)
+      return(z)
+    }
+  }
+  
+  return(y)
+}
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 # Calculations & Results
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
-
 # Midpoint Approach
-MidpointIntegration(l = l, u = u, n = n, FUN = pol, graphic = F)
-MidpointIteration(l = l, u = u, n = n, FUN = pol, graphic = T)
+MidpointIntegration(l = l, u = u, n = n/5, FUN = pol, graphic = F)
+MidpointIteration(l = l, u = u, n = n/5, FUN = pol, graphic = T)
 
 # MonteCarlo
-MonteCarloIntegration(seq(l,u,0.01), FUN = pol, n = n*100, graphic = F)$Area
-MonteCarloIteration(seq(l,u,0.01), FUN = pol, n = n*100, graphic = T)
+Hit_Miss_MonteCarloIntegration(l,u, FUN = pol, n = n*100, graphic = F)$Area
+Hit_Miss_MonteCarloIteration(l,u, FUN = pol, n = n*100, graphic = T)
+
+Crude_MonteCarloIntegration(l,u,pol,n = n*10, m = 15)
+Crude_MonteCarloIteration(l,u,pol,n = n*10,m = 15,T) # m is fixed here
+
+Crude_MonteCarloIntegration(l,u,pol,n = n*10, m = 30)
+Crude_MonteCarloIteration(l,u,pol,n = n*10,m = 30,T) # m is fixed here
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+# Application
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+x      = seq(-3,3,1)
+bins   = 15*(1:7)
+cutoff = -6
+y      = vector(length=length(x)) 
+
+for(i in 1:length(x)){
+  y[i] = MidpointIntegration(l = cutoff, u = x[i], n = bins[i], FUN = dnorm, graphic = T)
+}
+
+fct    = lm(y ~ poly(x, 3, raw=TRUE))
+x_new  = runif(6,-4,4)
+d      = data.frame(x = x_new, r_F = pnorm(x_new), e_F = predict(fct,data.frame(x =x_new)), Diff = pnorm(x_new)-predict(fct,data.frame(x =x_new)))
+d_plot = data.frame(x = seq(-3,3,0.01), r_F = pnorm(seq(-3,3,0.01)), e_F = predict(fct,data.frame(x =seq(-3,3,0.01))), Diff = pnorm(seq(-3,3,0.01))-predict(fct,data.frame(x =seq(-3,3,0.01))))
+
+g = ggplot() +
+  geom_line(aes(x = x, y = r_F, col = 'black'), data=d_plot, show.legend = F) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black", arrow = arrow(length = unit(0.25, "cm")))) +
+  geom_line(aes(x = x, y = e_F, colour = 'red'), data = d_plot, show.legend = F) +
+  xlab("x") + ylab("F(x)") +
+  geom_point(aes(x = x, y = y, colour = 'black'), data = data.frame(x = x, y = y), shape = 8,show.legend = F)
 
 
-
+print(g)
