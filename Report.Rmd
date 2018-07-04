@@ -11,6 +11,9 @@ header-includes:
 - \posttitle{\end{center}}
 
 output: pdf_document
+fig_caption: true
+keep_tex: yes
+fontsize: 12pt
 citation_package: natbib
 bibliography: biblio.bib
 ---
@@ -31,14 +34,287 @@ library(ggplot2)
 \pagenumbering{arabic}
 \setcounter{page}{1}
 
+```{r message = FALSE, warning=FALSE, echo=FALSE}
+u    = 4     # Upper Boundary
+l    = -4    # Lower Boundary
+
+# Function to numerically integrate
+pol  = function(x){
+  y  = x^2 + 3*x + 4
+  return(y)
+}
+
+n    = 100 # Max Number of Iterations
+m    = 10 # Number of Bins
+
+Crude_MonteCarloIntegration = function(l = NULL, u = NULL, FUN = dnorm, n = 100, m = 10, graphic = TRUE){
+  
+  # l,u see other functions
+  # n is an integer and represents the number of iterations per bin
+  # and m is the number of bins
+  
+  x = seq(l,u,0.01)
+  
+  # create DataFrame
+  df = data.frame(1.5*x, y = FUN(1.5*x))
+  
+  # create equidistant breaks
+  l      = max(x)-min(x)
+  step   = l/m
+  breaks = seq(min(x),max(x),step)
+  
+  # Generate Random Points
+  mcp_x = runif(n*m, min = min(x), max = max(x))
+  
+  # Calc corresponding y's
+  mcp_y = FUN(mcp_x)
+  
+  # Calc y's mean within bins
+  dfp   = data.frame(mcp_x, mcp_y, "Mean" = vector(length = length(mcp_y)))
+  means = vector(length = length(breaks)-1)
+  
+  for(i in 1:length(breaks)-1){
+    means[i] = mean(dfp$mcp_y[dfp$mcp_x >= breaks[i] & dfp$mcp_x <= breaks[i+1]])
+    dfp$Mean[dfp$mcp_x >= breaks[i] & dfp$mcp_x <= breaks[i+1]] = means[i]
+  }
+  
+  if (graphic == TRUE){
+    
+    rect = data.frame(xr = breaks[2:length(breaks)],
+                      xl = breaks[1:length(breaks)-1],
+                      yu = rep(0,length(breaks)-1),
+                      yo = means)
+    
+    # Visualization of the graph
+    p = ggplot(aes(df[,1], df[,2]), data=df) +
+      geom_line(size = 1) + 
+      theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+            panel.background = element_blank(), 
+            axis.line = element_line(colour = "black", arrow = arrow(length = unit(0.25, "cm")))) +
+      ylab("f(y)") + xlab("x") +
+      geom_point(data = dfp, aes(x = mcp_x, y = mcp_y, col = 'blue'),size = 3,inherit.aes = F, shape = 20, show.legend = F) + 
+      geom_point(data = dfp, aes(x = mcp_x, y = rep(0,length(mcp_x)), col = 'green'),size = 3,inherit.aes = F, shape = 20, show.legend = F) + 
+      geom_rect(data=rect, inherit.aes = F,aes(xmin=rect$xl, 
+                               xmax=rect$xr, 
+                               ymin=rect$yu, 
+                               ymax=rect$yo),
+                fill = 'red', alpha = 0.2, col = 'red')
+    
+    print(p)
+  }
+  
+  sol = rep(step,length(means)) %*% means
+  
+  return(sol)
+}
+
+Crude_MonteCarloIteration = function(l = NULL, u = NULL, FUN = dnorm, n = 100, m = 10, graphic = TRUE){
+  
+  # l,u see other functions
+  # n is an integer and represents the number of iterations (min is 10) per bin
+  # m is the number of bins and is fixed
+  
+  x = seq(l,u,0.01)
+  
+  # Convergence Data.Frame
+  dfg = data.frame("Iteration"     = as.integer(), 
+                   "Approx. Value" = as.numeric(), 
+                   "Real Value"    = as.numeric(),
+                   "Difference"    = as.numeric())
+  
+  for(i in seq(10,n,10)){
+    dfg[nrow(dfg) + 1,] = c(i,
+                            Crude_MonteCarloIntegration(l = l, u = u, FUN = FUN, n = i, m = m, graphic = F),
+                            integrate(pol,min(x),max(x))$value,
+                            integrate(pol,min(x),max(x))$value - Crude_MonteCarloIntegration(l = l, u = u, FUN = FUN, n = i, m = m, graphic = F))
+  }
+  
+  if (graphic == TRUE){
+    
+    # Visualization of the Function
+    Crude_MonteCarloIntegration(l = l, u = u, FUN = FUN, n = n, m = m, graphic = T)
+    
+    # Visualization of the convergence
+    g = ggplot(aes(x = dfg[,1], y = dfg[,2]), data=dfg) +
+      geom_line() + 
+      theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+            panel.background = element_blank(), 
+            axis.line = element_line(colour = "black", arrow = arrow(length = unit(0.25, "cm")))) +
+      geom_line(aes(x = dfg[,1], y = dfg[,3], colour = 'red'), data = dfg, show.legend=F) +
+      xlab("Iterations") + ylab("Area")
+    
+    print(g)
+  }
+  
+  return(dfg)
+}
+
+Hit_Miss_MonteCarloIntegration = function(l = NULL, u = NULL, FUN = dnorm, n = 100000, graphic = TRUE){
+  
+  # l,u see other functions
+  # n is an integer and represents the number of iterations
+  
+  x = seq(l,u,0.01)
+  
+  # create DataFrame
+  df = data.frame(1.5*x, y = FUN(1.5*x))
+  
+  # Generate Random Points
+  mcp_x = runif(n, min = min(x), max = max(x))
+  mcp_y = runif(n, min = 0, max = max(FUN(x)))
+  
+  # Calculate the area
+  area = (max(x) - min(x))*(max(FUN(x)))
+  
+  # Approx. Area
+  dfp = data.frame(mcp_x, mcp_y)
+  dfp["Within"] = ifelse(dfp$mcp_y <= FUN(dfp$mcp_x), TRUE, FALSE)
+  
+  # Percentage of points <= function
+  perc = length(dfp$mcp_x[dfp["Within"] == TRUE])/n
+  
+  if (graphic == TRUE){
+    # Visualization of the graph
+    p = ggplot(aes(df[,1], df[,2]), data=df) +
+      geom_line(size = 1) + 
+      theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+            panel.background = element_blank(), 
+            axis.line = element_line(colour = "black", arrow = arrow(length = unit(0.25, "cm")))) +
+      geom_point(aes(x=mcp_x, y=mcp_y, colour = Within), data = dfp, size = 1, show.legend=F) + 
+      ylab("f(y)") + xlab("x") 
+    
+    print(p)
+  }
+  
+  sol = list(as.integer(n),area * perc)
+  names(sol) = c("Iterations","Area")
+  
+  return(sol)
+}
+
+Hit_Miss_MonteCarloIteration = function(l = NULL, u = NULL, FUN = dnorm, n = 100000, graphic = TRUE){
+  
+  # l,u see other functions
+  # x contains the x values and FUN is a function
+  # n is an integer and represents the number of iterations (min is 10)
+  
+  x = seq(l,u,0.01)
+  
+  # Convergence Data.Frame
+  dfg = data.frame("Iteration"     = as.integer(), 
+                   "Approx. Value" = as.numeric(), 
+                   "Real Value"    = as.numeric(),
+                   "Difference"    = as.numeric())
+  
+  for(i in seq(10,n,10)){
+    dfg[nrow(dfg) + 1,] = c(i,
+                            Hit_Miss_MonteCarloIntegration(l = l, u = u, FUN = FUN, n = i, graphic = F)$Area,
+                            integrate(pol,min(x),max(x))$value,
+                            integrate(pol,min(x),max(x))$value - Hit_Miss_MonteCarloIntegration(l = l, u = u, FUN = pol, n = i, graphic = F)$Area)
+  }
+  
+  if (graphic == TRUE){
+    
+    # Visualization of the Function
+    Hit_Miss_MonteCarloIntegration(l = l, u = u, FUN = pol, n = n, graphic = T)
+    
+    # Visualization of the convergence
+    g = ggplot(aes(x = dfg[,1], y = dfg[,2]), data=dfg) +
+      geom_line() + 
+      theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+            panel.background = element_blank(), 
+            axis.line = element_line(colour = "black", arrow = arrow(length = unit(0.25, "cm")))) +
+      geom_line(aes(x = dfg[,1], y = dfg[,3], colour = 'red'), data = dfg, show.legend=F) +
+      xlab("Iterations") + ylab("Area")
+    
+    print(g)
+  }
+  
+  return(dfg)
+}
+
+MidpointIntegration = function(l = NULL, u = NULL, n = 10, FUN = dnorm, graphic = T){
+  
+  # FUN is the function of interest
+  
+  x_mid = head(filter(seq(l,u,(u-l)/(n-1)),c(0.5,0.5)),-1)
+  y_mid = FUN(x_mid)
+  
+  # create DataFrame
+  df   = data.frame(seq(l,u,(u-l)/(n-1)), y = FUN(seq(l,u,(u-l)/(n-1))))
+  rect = data.frame(xl = seq(l,u,(u-l)/(n-1))[1:length(seq(l,u,(u-l)/(n-1)))-1], xr = seq(l,u,(u-l)/(n-1))[2:length(seq(l,u,(u-l)/(n-1)))], yu = rep(0,length(seq(l,u,(u-l)/(n-1)))-1), yo = y_mid )
+  if (graphic == TRUE){
+    # Visualization of the approximation
+    g = ggplot() +
+      geom_line(aes(x = df[,1], y = df[,2]), data=df) + 
+      theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+            panel.background = element_blank(), 
+            axis.line = element_line(colour = "black", arrow = arrow(length = unit(0.25, "cm")))) +
+      geom_rect(data=rect, aes(xmin=rect[,1], 
+                               xmax=rect[,2], 
+                               ymin=rect[,3], 
+                               ymax=rect[,4]),
+                fill = 'red', alpha = 0.2, col = 'blue') +
+      xlab("x") + ylab("f(x)")
+    
+    print(g)
+    
+  }
+  
+  sol   = sum(y_mid %*% diff(seq(l,u,(u-l)/(n-1))))
+  
+  return(sol)
+}
+
+MidpointIteration = function(l = NULL, u = NULL, n = 10, FUN = dnorm, graphic = T){
+  
+  # FUN is the function of interest
+  
+  steps = length(head(filter(seq(l,u,(u-l)/(n-1)),c(0.5,0.5)),-1))
+  
+  # Convergence Data.Frame
+  dfg = data.frame("Iteration"     = as.integer(), 
+                   "Approx. Value" = as.numeric(), 
+                   "Real Value"    = as.numeric(),
+                   "Difference"    = as.numeric())
+  
+  for(i in seq(2,steps,1)){
+    dfg[nrow(dfg) + 1,] = c(i,
+                            MidpointIntegration(l = l, u = u, n = i, FUN = FUN, graphic = F),
+                            integrate(pol,l,u)$value,
+                            integrate(pol,l,u)$value - MidpointIntegration(l = l, u = u, n = n, FUN = FUN, graphic = F))
+  }
+  if (graphic == TRUE){
+    # Visualization of the Function
+    MidpointIntegration(l = l, u = u, n = n, FUN = FUN, graphic = T)
+    
+    # Visualization of the convergence
+    g = ggplot(aes(x = dfg[,1], y = dfg[,2]), data=dfg) +
+      geom_line() + 
+      theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+            panel.background = element_blank(), 
+            axis.line = element_line(colour = "black", arrow = arrow(length = unit(0.25, "cm")))) +
+      geom_line(aes(x = dfg[,1], y = dfg[,3], colour = 'red'), data = dfg, show.legend=F) +
+      xlab("Iterations") + ylab("Area")
+    
+    print(g)
+  }
+  
+  return(dfg)
+}
+
+
+```
+
+
+
 # 1. Abstract
 
 # 1. Introduction
 
 # 1. Motivation
 
-Integration is an important operation in mathematics. Unfortunately, in real life applications one might find it extremely difficult or even impossible to solve certain integrals. Due to the continous improvement in computational power one might address this issue by numercially approximating the integral of interest. In order to do so, several procedures have been developed, each with it's own pros and cons. One may for example use the "Rechteckappromation", the "Trapezapproximation"
-or the in this paper elaborated on Monte Carlo Method. 
+Integration is an important operation in mathematics. Unfortunately, in real life applications one might find it extremely difficult or even impossible to solve certain integrals in a closed form. Due to the continous improvement in computational power one might address this issue by numercially approximating the integral of interest. In order to do so, several procedures have been developed, each with it's own advantages respectively disadvantages. 
 
 # 2. Literature Review
 
@@ -46,15 +322,62 @@ lalalala
 
 # 3. Theory
 
-In the following section I want to explain some of the most popular methods in numerical integration. These can be distingushed into one and multi-dimensional methods. Furthermore one might distinguesh numerical integration methods further into deterministic and probabilistic methods.
+In the following section I want to explain some of the most popular methods in numerical integration. These can be distingushed into one and multi-dimensional methods. Furthermore one might distinguesh numerical integration methods further into deterministic and probabilistic methods. But before I start introducing the methods of interest I will do a little recap of the bascis:
 
 # 3.1 Review: The Riemann Integral
 
+The Riemann Integral is one of the two classic concepts of integrals in analysis. It is named after the German mathematician Bernhard Riemann and it's aim is to calculate the area between the $x$-axis and a certain limited function $f:[a;b] \rightarrow \mathbb{R}$. Loosley speaking, the basic idea behind the concept is to approximate the desired integral by summing up different areas of easier to compute rectangles.
 
+The kind of definition I want to present here is the definition using upper and lower sums introduced by Jean Gaston Darboux:
+
+Let $f:[a;b] \rightarrow \mathbb{R}$ be a limited function and $[a;b]$ be an interval. Furthermore, let $P$ be a partition of $[a;b]$ where $a = x_0 < x_1 < ... < x_{n-1} < x_n = b$. Then we can define the upper and lower sums accordingly:
+
+\begin{equation*}
+U(P) = \sum_{k=1}^{n} ((x_k-x_{k-1})\cdot \sup_{x_{k-1} < x < x_{k}} f(x))
+\end{equation*}
+\begin{equation*}
+L(P) = \sum_{k=1}^{n} ((x_k-x_{k-1})\cdot \inf_{x_{k-1} < x < x_{k}} f(x))
+\end{equation*}
+
+Now we can compute the infimum and supremum of the upper and lower sum over all partitions $P$. Therefore it follows:
+
+\begin{equation*}
+\sup_P L(P) \leq \inf_P U(P)
+\end{equation*}
+
+In case of equality, on says that $f$ in Riemann integrable. 
 
 # 3.2 One-Dimensional Procedures
 
-lalalala
+The one dimensional procedurees elaborated on in this chapter are classified as deterministic methods.
+Throughout this document the function $f:[-4;4]\rightarrow \mathbb{R}$ with $f(x) = x^2 + 3 \cdot x + 4$ is used for visualizing the procedures introduced.
+
+## 3.2.1 Midpoint or Rectangular Quadrature
+
+The idea of the Midpoint or Rectangular Quadrature directly derives from the definition of the Riemann Integral. We therefore want to calculate the area between the $x$-axis and a limited function $f:[a;b] \rightarrow \mathbb{R}$.
+The algorithm works in the way, that we start by partitioning our interval of interest $[a;b]$ into $a = x_0 < x_1 < ... < x_{n-1} < x_n = b$. Afterwards we calculate the midpoint $x^{(i)}$ within each subinterval $[x_i;x_{i+1}]$ for $i \in \{ 0,1,...,n-1\}$ and evaluate $f$ for each $x^{(i)}$.
+For our approximation it then holds that $\int_a^bf(x)dx \approx \sum_{k=0}^{n-1} f(x^{(i)} \cdot (x_{i+1} - x_{i})$.
+
+An illustration of the procedure can be found in Figure \ref{fig:figs}.\newpage \center
+
+```{r figs, fig.cap="\\label{fig:figs} Illustration of the Midpoint or Rectangular Quadrature",echo=FALSE,results='hide',fig.pos="H"}
+MidpointIntegration(l = l, u = u, n = n/5, FUN = pol, graphic = T)
+```
+
+\flushleft
+
+## 3.2.2 Simpson-Rule
+
+The Simposn-Rule is similiar to the Rectangular Quadrature, but instead of rectangles quadratic functions are used in order to calculate the area between the $x$-axis and our limited function $f:[a;b] \rightarrow \mathbb{R}$ more accurately.
+We again start by partitioning our interval of interest $[a;b]$ into $a = x_0 < x_1 < ... < x_{n-1} < x_n = b$ with aquidistant distances which we will in the following denote by $\Delta x$. Afterwards we calculate the midpoint $x^{(i)}$ within each subinterval $[x_i;x_{i+1}]$ for $i \in \{ 0,1,...,n-1\}$.
+Now we use the 3 points $\left( x_i; f(x_i)\right)$, $\left( x^{(i)}; f(x^{(i)})\right)$ and $\left( x_{i+1}; f(x_{i+1})\right)$ within each subinterval to interpolate our quadratic functions $g_i(x):[x_i;x_{i+1}] \rightarrow \mathbb{R}$. 
+For our approximation it then holds that $\int_a^bf(x)dx \approx \frac{\Delta x}{6} \cdot \left( f(x_0) + 2 \cdot \sum_{k=1}^{n-1} f(x_k) + f(x_n) + 4 \cdot \sum_{k=0}^{n-1} f(x^{(k)})\right)$.\newpage \center
+
+```{r figs1, fig.cap="\\label{fig:figs1} Illustration of the Midpoint or Rectangular Quadrature",echo=FALSE,results='hide',fig.pos="H"}
+MidpointIntegration(l = l, u = u, n = n/5, FUN = pol, graphic = T)
+```
+
+\flushleft
 
 # 3.3 Multi-Dimensional Procedures
 
