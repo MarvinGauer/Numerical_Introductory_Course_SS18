@@ -4,6 +4,7 @@ subtitle: "Numerical Introductory Course"
 author: "Marvin Gauer (580553)"
 header-includes:
 - \usepackage{titling}
+- \usepackage{amsmath}
 - \pretitle{\begin{center}\LARGE\includegraphics[width=5cm]{husiegel_bw.png}\\[\bigskipamount]}
 - \title{\vspace{3cm} \Huge Numerical Integration \vspace{3cm}}
 - \preauthor{\centering \Large Numerical Introductory Course \\}
@@ -18,7 +19,7 @@ citation_package: natbib
 bibliography: biblio.bib
 ---
 ```{r include = TRUE, echo = FALSE, comment = NA}
-knitr::opts_chunk$set(fig.width=3, fig.height=3)
+knitr::opts_chunk$set(fig.width=2, fig.height=2)
 ```
 ```{r include = FALSE}
 rm(list=ls())
@@ -303,18 +304,79 @@ MidpointIteration = function(l = NULL, u = NULL, n = 10, FUN = dnorm, graphic = 
   return(dfg)
 }
 
+SimpsonIntegration = function(l = NULL, u = NULL, n = 10, FUN = dnorm, graphic = T){
+  
+  # FUN is the function of interest
+  
+  x_mid = head(filter(seq(l,u,(u-l)/(n-1)),c(0.5,0.5)),-1)
+  y_mid = FUN(x_mid)
+  
+  # create DataFrame
+  df   = data.frame("interval" = 1:length(x_mid), "x_i" = seq(l,u,(u-l)/(n-1))[1:(n-1)],
+                    "x_mid" = x_mid, "x_i+1" = seq(l,u,(u-l)/(n-1))[2:(n)],
+                    "y_i" = FUN(seq(l,u,(u-l)/(n-1))[1:(n-1)]), "y_mid" = FUN(x_mid),
+                    "y_i+1" = FUN(seq(l,u,(u-l)/(n-1))[2:(n)]))
+  
+  # Function to fit: y = a*x^2 + b*x + c 
+  
+  para  = list()
+  fct   = list()
+  fct_y = list()
+  fct_x = list()
+  area  = list()
+  
+  for(i in 1:length(x_mid)){
+    A = matrix(c(df$x_i[i]^2, df$x_i[i], 1,
+                 df$x_mid[i]^2, df$x_mid[i], 1, 
+                 df$x_i.1[i]^2, df$x_i.1[i],1), ncol = 3, byrow = T)
+    y = c(df$y_i[i],df$y_mid[i],df$y_i.1[i])
+    
+    z = solve(A) %*% y
+    
+    para[[i]] = z
+    fct[[i]]  = function(x, c = z){
+      v = c[1] * x^2 + c[2] * x + c[3]
+      return(v)
+    }
+    fct_y[[i]] = sapply(seq(df$x_i[i],df$x_i.1[i],0.01), fct[[i]], c = z)
+    fct_x[[i]] = seq(df$x_i[i],df$x_i.1[i],0.01)
+    
+    #fct_y[[i]] = sapply(c(df$x_i[i],df$x_mid[i], df$x_i.1[i]), fct[[i]], c = z)
+    #fct_x[[i]] = c(df$x_i[i],df$x_mid[i], df$x_i.1[i])
+    area[i]   = integrate(fct[[i]],lower = df$x_i[i],upper = df$x_i.1[i])$value
+  }
+  
+  df1    = data.frame(seq(l,u,0.01), y = FUN(seq(l,u,0.01)))
+  df_fct = data.frame(matrix(c(unlist(fct_x),unlist(fct_y)), ncol = 2, byrow=F))
+  
+  
+  if (graphic == TRUE){
+    # Visualization of the approximation
+    g = ggplot() +
+      geom_line(aes(x = df1[,1], y = df1[,2]), data=df1) + 
+      theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+            panel.background = element_blank(), 
+            axis.line = element_line(colour = "black", arrow = arrow(length = unit(0.25, "cm")))) +
+      xlab("x") + ylab("f(x)") + 
+      geom_line(aes(x = df_fct[,1], y = df_fct[,2], col = 'red'), data=df_fct, show.legend = F)
+      df2 = data.frame(x = seq(l,u,(u-l)/(n-1))[1:n])
+      for(t in 1:length(df2$x)){
+        g = g + geom_vline(xintercept = df2$x[t], linetype='dashed', alpha = 0.4)
+      }
+    print(g)
+    
+  }
+  
+  sol = sum(unlist(area))
+  return(sol)
+}
 
 ```
 
-
-
-# 1. Abstract
-
-# 1. Introduction
-
 # 1. Motivation
 
-Integration is an important operation in mathematics. Unfortunately, in real life applications one might find it extremely difficult or even impossible to solve certain integrals in a closed form. Due to the continous improvement in computational power one might address this issue by numercially approximating the integral of interest. In order to do so, several procedures have been developed, each with it's own advantages respectively disadvantages. 
+Integration is an important operation in mathematics. Unfortunately, in real life applications one might find it extremely difficult or even impossible to solve certain integrals in a closed form. Due to the continous improvement in computational power one might address this issue by numercially approximating the integral of interest. In order to do so, several procedures have been developed, each with it's own advantages respectively disadvantages.
+In this document we want to present 5 methods for numerical integration and furthermore apply one of those methods to numerically integrate the normal distributions density in order to approximate the normals cumulative distribution function.
 
 # 2. Literature Review
 
@@ -358,35 +420,64 @@ The idea of the Midpoint or Rectangular Quadrature directly derives from the def
 The algorithm works in the way, that we start by partitioning our interval of interest $[a;b]$ into $a = x_0 < x_1 < ... < x_{n-1} < x_n = b$. Afterwards we calculate the midpoint $x^{(i)}$ within each subinterval $[x_i;x_{i+1}]$ for $i \in \{ 0,1,...,n-1\}$ and evaluate $f$ for each $x^{(i)}$.
 For our approximation it then holds that $\int_a^bf(x)dx \approx \sum_{k=0}^{n-1} f(x^{(i)} \cdot (x_{i+1} - x_{i})$.
 
-An illustration of the procedure can be found in Figure \ref{fig:figs}.\newpage \center
+An illustration of the procedure can be found in Figure \ref{fig:figs}.
 
-```{r figs, fig.cap="\\label{fig:figs} Illustration of the Midpoint or Rectangular Quadrature",echo=FALSE,results='hide',fig.pos="H"}
+```{r figs, fig.cap="\\label{fig:figs} Illustration of the Midpoint or Rectangular Quadrature",echo=FALSE,results='hide',fig.pos="h",out.extra='',fig.align="center"}
 MidpointIntegration(l = l, u = u, n = n/5, FUN = pol, graphic = T)
 ```
 
-\flushleft
+When numerically solving an integral one is naturally interested in the error of the approximation which will in the following be denoted by $\varepsilon$.
 
 ## 3.2.2 Simpson-Rule
 
 The Simposn-Rule is similiar to the Rectangular Quadrature, but instead of rectangles quadratic functions are used in order to calculate the area between the $x$-axis and our limited function $f:[a;b] \rightarrow \mathbb{R}$ more accurately.
 We again start by partitioning our interval of interest $[a;b]$ into $a = x_0 < x_1 < ... < x_{n-1} < x_n = b$ with aquidistant distances which we will in the following denote by $\Delta x$. Afterwards we calculate the midpoint $x^{(i)}$ within each subinterval $[x_i;x_{i+1}]$ for $i \in \{ 0,1,...,n-1\}$.
 Now we use the 3 points $\left( x_i; f(x_i)\right)$, $\left( x^{(i)}; f(x^{(i)})\right)$ and $\left( x_{i+1}; f(x_{i+1})\right)$ within each subinterval to interpolate our quadratic functions $g_i(x):[x_i;x_{i+1}] \rightarrow \mathbb{R}$. 
-For our approximation it then holds that $\int_a^bf(x)dx \approx \frac{\Delta x}{6} \cdot \left( f(x_0) + 2 \cdot \sum_{k=1}^{n-1} f(x_k) + f(x_n) + 4 \cdot \sum_{k=0}^{n-1} f(x^{(k)})\right)$.\newpage \center
+For our approximation it then holds that $\int_a^bf(x)dx \approx \frac{\Delta x}{6} \cdot \left( f(x_0) + 2 \cdot \sum_{k=1}^{n-1} f(x_k) + f(x_n) + 4 \cdot \sum_{k=0}^{n-1} f(x^{(k)})\right)$. 
 
-```{r figs1, fig.cap="\\label{fig:figs1} Illustration of the Midpoint or Rectangular Quadrature",echo=FALSE,results='hide',fig.pos="H"}
-MidpointIntegration(l = l, u = u, n = n/5, FUN = pol, graphic = T)
+```{r figs1, fig.cap="\\label{fig:figs1} Illustration of the Simpson Rule",echo=FALSE,results='hide',fig.pos="h",out.extra='',fig.align="center"}
+SimpsonIntegration(l = l, u = u, n = n/10, FUN = pol, graphic = T)
 ```
-
-\flushleft
 
 # 3.3 Multi-Dimensional Procedures
 
-lalalala
+In lots of applications multidomensional Inetgrals need to be solved numerically. This means that we now want to calculate the integral $\int_{\Omega}f(\mathbf{x})d\mathbf{x} = \int_{a_1}^{b_1}...\int_{a_m}^{b_m}f(x_1,x_2,...,x_m)dx_1dx_2...dx_m$.
+One might have the idea, to use the quadrature rules explained above in a multidimensional setting to calculate the integral at hand, but we can easily see that this will end in the \textbf{Curse of dimensionality}. Therefore I want to concentrate on Monte Carlo integration methods going on.
+
+## 3.3.1 Crude
+
+The Crude Monte Carlo Integration method is a fairly simple method to calculate integrals numerically. It works in the way, that we partition $k$ bins $\left[ a_{1,j};b_{1,j}\right] \times \left[ a_{2,j} \times b_{2,j}\right] \times ... \times \left[ a_{m,j};b_{m,j}\right]$ $\forall j \in \{1,...,k \}$.
+Furthermore, one needs to generate n m-dimensional uniformally distributed points $\mathbf{x_i} = \left( x_1,...,x_m \right)$ $\forall i \in \{1,...,n\}$. In the next step, we calculate $f(\mathbf{x_i})$ $\forall i \in \{1,...,n\}$ and the means $m_i$ for each bin.
+Therefore it holds that $\int_a^bf(x)dx \approx \sum_{t = 1}^{k}\left( \prod_{l=1}^{m}\left( b_{l,t} - a_{l,t}\right)\cdot m_t\right)$
+
+```{r figs2, fig.cap="\\label{fig:figs2} Illustration of the Crude Monte Carlo integration method",echo=FALSE,results='hide',fig.pos="h",out.extra='',fig.align="center"}
+Crude_MonteCarloIntegration(l = l, u = u, n = 100, m = 10, FUN = pol, graphic = T)
+```
+
+## 3.3.2 Hit or Miss
+
+On the other hand, the Hit or Miss Monte Carlo Integration method works slidly differently. Here we create $n$ $m+1$-dimensional uniformly distributed points $\left( x_{i,1},...,x_{i,m},y_i\right)$ for $i \in \{1,..,n\}$. The first $m$ dimensions are for our domain $\left[ a_{1};b_{1}\right] \times \left[ a_{2} \times b_{2}\right] \times ... \times \left[ a_{m};b_{m}\right]$ and are always uniformaly distributed on $\left[ a_{i};b_{i}\right]$ $\forall i \in \{1,...,m\}$. The $y_i$ coordinate is for our $f(\mathbf{x})$-values and these are uniformally distributed on $\left[ 0;max(f(\mathbf{x}))\right]$.
+Now the percentage of points $p$ for which holds $y_i \leq f(x_1,...,x_m)$ and the total area/vloume $A$ surrounding the graph needs to be calculated. $A$ is basically the area/volume of the domain of the generated random points.
+Therefore it holds that $\int_a^bf(x)dx \approx A \cdot p$
+
+```{r figs3, fig.cap="\\label{fig:figs3} Illustration of the Hit or Miss Monte Carlo integration method ",echo=FALSE,results='hide',fig.pos="h",out.extra='',fig.align="center"}
+Hit_Miss_MonteCarloIntegration(l = l, u = u, n = 1000, FUN = pol, graphic = T)
+```
 
 # 3.4 Integrals over infinite Intervals
 
-lalalala
+Working with the procedures elaborated on above one needs to have certain limits for the integral to approximate, but in many applications one might also be interested in numerically solving improper integrals.
+I therefore want to elaborate on a method known as change of variables in order to account for the issue described above. The basic idea of the procedure is to adjust the integrand in such a way, that we have an equivalent definite integral at the end. Therefore we can use the following three functions to trasform our integral at hand:
 
+\begin{equation*}
+\int_{-\infty}^{\infty}f(x)dx = \int_{-1}^{1}f(\frac{t}{1-t})\cdot \frac{1+t^2}{(1-t^2)^2}dt
+\end{equation*}
+\begin{equation*}
+\int_{a}^{\infty}f(x)dx = \int_{0}^{1}f(a + \frac{t}{1-t})\cdot \frac{1}{(1-t)^2}dt
+\end{equation*}
+\begin{equation*}
+\int_{-\infty}^{a}f(x)dx = \int_{0}^{1}f(a - \frac{1-t}{t})\cdot \frac{1}{t^2}dt
+\end{equation*}
 # 4. Application: Approximation of the Normal Distribution
 
 lalalala

@@ -34,7 +34,7 @@ pol  = function(x){
   return(y)
 }
 
-n    = 100 # Max Number of Iterations
+n    = 10 # Max Number of Iterations
 m    = 10 # Number of Bins
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
@@ -297,8 +297,72 @@ MidpointIteration = function(l = NULL, u = NULL, n = 10, FUN = dnorm, graphic = 
   return(dfg)
 }
 
-#SimpsonIntegration
-
+SimpsonIntegration = function(l = NULL, u = NULL, n = 10, FUN = dnorm, graphic = T){
+  
+  # FUN is the function of interest
+  
+  x_mid = head(filter(seq(l,u,(u-l)/(n-1)),c(0.5,0.5)),-1)
+  y_mid = FUN(x_mid)
+  
+  # create DataFrame
+  df   = data.frame("interval" = 1:length(x_mid), "x_i" = seq(l,u,(u-l)/(n-1))[1:(n-1)],
+                    "x_mid" = x_mid, "x_i+1" = seq(l,u,(u-l)/(n-1))[2:(n)],
+                    "y_i" = FUN(seq(l,u,(u-l)/(n-1))[1:(n-1)]), "y_mid" = FUN(x_mid),
+                    "y_i+1" = FUN(seq(l,u,(u-l)/(n-1))[2:(n)]))
+  
+  # Function to fit: y = a*x^2 + b*x + c 
+  
+  para  = list()
+  fct   = list()
+  fct_y = list()
+  fct_x = list()
+  area  = list()
+  
+  for(i in 1:length(x_mid)){
+    A = matrix(c(df$x_i[i]^2, df$x_i[i], 1,
+                 df$x_mid[i]^2, df$x_mid[i], 1, 
+                 df$x_i.1[i]^2, df$x_i.1[i],1), ncol = 3, byrow = T)
+    y = c(df$y_i[i],df$y_mid[i],df$y_i.1[i])
+    
+    z = solve(A) %*% y
+    
+    para[[i]] = z
+    fct[[i]]  = function(x, c = z){
+      v = c[1] * x^2 + c[2] * x + c[3]
+      return(v)
+    }
+    fct_y[[i]] = sapply(seq(df$x_i[i],df$x_i.1[i],0.01), fct[[i]], c = z)
+    fct_x[[i]] = seq(df$x_i[i],df$x_i.1[i],0.01)
+    
+    #fct_y[[i]] = sapply(c(df$x_i[i],df$x_mid[i], df$x_i.1[i]), fct[[i]], c = z)
+    #fct_x[[i]] = c(df$x_i[i],df$x_mid[i], df$x_i.1[i])
+    area[i]   = integrate(fct[[i]],lower = df$x_i[i],upper = df$x_i.1[i])$value
+  }
+  
+  df1    = data.frame(seq(l,u,0.01), y = FUN(seq(l,u,0.01)))
+  df_fct = data.frame(matrix(c(unlist(fct_x),unlist(fct_y)), ncol = 2, byrow=F))
+  
+  
+  if (graphic == TRUE){
+    # Visualization of the approximation
+    g = ggplot() +
+      geom_line(aes(x = df1[,1], y = df1[,2]), data=df1) + 
+      theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+            panel.background = element_blank(), 
+            axis.line = element_line(colour = "black", arrow = arrow(length = unit(0.25, "cm")))) +
+      xlab("x") + ylab("f(x)") + 
+      geom_line(aes(x = df_fct[,1], y = df_fct[,2], col = 'red'), data=df_fct, show.legend = F)
+      df2 = data.frame(x = seq(l,u,(u-l)/(n-1))[1:n])
+      for(t in 1:length(df2$x)){
+        g = g + geom_vline(xintercept = df2$x[t], linetype='dashed', alpha = 0.4)
+      }
+    print(g)
+    
+  }
+  
+  sol = sum(unlist(area))
+  return(sol)
+}
 #AdaptiveIntegration
 
 IntervalShifter = function(FUN = NULL, b = as.vector(length = 2)){
