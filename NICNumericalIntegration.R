@@ -363,6 +363,7 @@ SimpsonIntegration = function(l = NULL, u = NULL, n = 10, FUN = dnorm, graphic =
   sol = sum(unlist(area))
   return(sol)
 }
+
 #AdaptiveIntegration
 
 IntervalShifter = function(FUN = NULL, b = as.vector(length = 2)){
