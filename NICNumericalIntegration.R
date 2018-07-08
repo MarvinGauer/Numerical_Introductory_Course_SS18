@@ -13,7 +13,7 @@ graphics.off()
 # Install and load packages
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
-libraries = c("ggplot2")
+libraries = c("ggplot2", "gridExtra")
 lapply(libraries, function(x) 
   if (!(x %in% installed.packages())) {
     install.packages(x)
@@ -25,8 +25,8 @@ lapply(libraries, library, quietly = TRUE, character.only = TRUE)
 # Input Values
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
-u    = 4     # Upper Boundary
-l    = -4    # Lower Boundary
+u    = 1     # Upper Boundary
+l    = 0    # Lower Boundary
 
 # Function to numerically integrate
 pol  = function(x){
@@ -34,12 +34,20 @@ pol  = function(x){
   return(y)
 }
 
-n    = 10 # Max Number of Iterations
+n    = 30 # Max Number of Iterations
 m    = 10 # Number of Bins
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 # Functions
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+sigmoid = function(params, x) {
+  params[1] / (1 + exp(-params[2] * (x - params[3])))
+}
+
+inversefit = function(params,x){
+  params[3] - log(x^(-1)-params[1])/(params[2])
+}
 
 Crude_MonteCarloIntegration = function(l = NULL, u = NULL, FUN = dnorm, n = 100, m = 10, graphic = TRUE){
   
@@ -235,29 +243,30 @@ MidpointIntegration = function(l = NULL, u = NULL, n = 10, FUN = dnorm, graphic 
   y_mid = FUN(x_mid)
   
   # create DataFrame
-  df   = data.frame(seq(l,u,(u-l)/(n-1)), y = FUN(seq(l,u,(u-l)/(n-1))))
+  df   = data.frame(seq(l,u,0.01), y = FUN(seq(l,u,0.01)))
   rect = data.frame(xl = seq(l,u,(u-l)/(n-1))[1:length(seq(l,u,(u-l)/(n-1)))-1], xr = seq(l,u,(u-l)/(n-1))[2:length(seq(l,u,(u-l)/(n-1)))], yu = rep(0,length(seq(l,u,(u-l)/(n-1)))-1), yo = y_mid )
+
+  # Visualization of the approximation
+  g = ggplot() +
+    geom_line(aes(x = df[,1], y = df[,2]), data=df) + 
+    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+          panel.background = element_blank(), 
+          axis.line = element_line(colour = "black", arrow = arrow(length = unit(0.25, "cm")))) +
+    geom_rect(data=rect, aes(xmin=rect[,1], 
+                             xmax=rect[,2], 
+                             ymin=rect[,3], 
+                             ymax=rect[,4]),
+              fill = 'red', alpha = 0.2, col = 'blue') +
+    xlab("x") + ylab("f(x)")
   if (graphic == TRUE){
-    # Visualization of the approximation
-    g = ggplot() +
-      geom_line(aes(x = df[,1], y = df[,2]), data=df) + 
-      theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
-            panel.background = element_blank(), 
-            axis.line = element_line(colour = "black", arrow = arrow(length = unit(0.25, "cm")))) +
-      geom_rect(data=rect, aes(xmin=rect[,1], 
-                               xmax=rect[,2], 
-                               ymin=rect[,3], 
-                               ymax=rect[,4]),
-                fill = 'red', alpha = 0.2, col = 'blue') +
-      xlab("x") + ylab("f(x)")
-    
     print(g)
-    
   }
+  
+  error = (u-l)^3/(24 * n^2) * abs(max(df$y,na.rm = TRUE))
   
   sol   = sum(y_mid %*% diff(seq(l,u,(u-l)/(n-1))))
   
-  return(sol)
+  return(c(sol,error))
 }
 
 MidpointIteration = function(l = NULL, u = NULL, n = 10, FUN = dnorm, graphic = T){
@@ -274,13 +283,13 @@ MidpointIteration = function(l = NULL, u = NULL, n = 10, FUN = dnorm, graphic = 
   
   for(i in seq(2,steps,1)){
     dfg[nrow(dfg) + 1,] = c(i,
-                            MidpointIntegration(l = l, u = u, n = i, FUN = FUN, graphic = F),
+                            MidpointIntegration(l = l, u = u, n = i, FUN = FUN, graphic = F)[1],
                             integrate(pol,l,u)$value,
-                            integrate(pol,l,u)$value - MidpointIntegration(l = l, u = u, n = n, FUN = FUN, graphic = F))
+                            integrate(pol,l,u)$value - MidpointIntegration(l = l, u = u, n = i, FUN = FUN, graphic = F)[1])
   }
   if (graphic == TRUE){
     # Visualization of the Function
-    MidpointIntegration(l = l, u = u, n = n, FUN = FUN, graphic = T)
+    MidpointIntegration(l = l, u = u, n = n, FUN = FUN, graphic = T)[1]
     
     # Visualization of the convergence
     g = ggplot(aes(x = dfg[,1], y = dfg[,2]), data=dfg) +
@@ -359,12 +368,24 @@ SimpsonIntegration = function(l = NULL, u = NULL, n = 10, FUN = dnorm, graphic =
     print(g)
     
   }
-  
+  error = (u-l)^3/(24 * n^2) * abs(max(df$y))
   sol = sum(unlist(area))
-  return(sol)
+  return(c(sol,error))
 }
 
-#AdaptiveIntegration
+Rec_Mid = function(FUN = FUN, l = l, u = u, eps = 0.01, borders = list()){
+    m     = (l+u) / 2.0
+    left  = MidpointIntegration(l = l, u = m, n = 2, FUN = FUN, graphic = F)
+    right = MidpointIntegration(l = m, u = u, n = 2, FUN = FUN, graphic = F)
+    if(left[2] + right[2] <= eps){
+      return(left[1] + right[1])
+    }
+    return(Rec_Mid(FUN,l,m,eps/2.0) + Rec_Mid(FUN,m,u,eps/2.0))
+}
+  
+Adaptive_Midpoint = function(FUN = FUN, l = l, u = u, eps = 0.01){
+    return(Rec_Mid(FUN,l,u,eps))
+}
 
 IntervalShifter = function(FUN = NULL, b = as.vector(length = 2)){
   
@@ -373,9 +394,9 @@ IntervalShifter = function(FUN = NULL, b = as.vector(length = 2)){
       z = FUN(t/(1-t^2)) * (1+t^2)/((1-t^2)^2)
       return(z)
     }
-  } else if(as.numeric(b[1]) == -Inf & b[2] != Inf){
+  } else if(b[1] == -Inf & b[2] != Inf){
     y = function(t){
-      z = FUN(as.numeric(b[1]) - ((1-t)/(t))) * (1)/((t^2))
+      z = FUN(b[2] - ((1-t)/(t))) * (1)/((t^2))
       return(z)
     }
   } else if(b[1] != -Inf & b[2] == Inf){
@@ -389,40 +410,69 @@ IntervalShifter = function(FUN = NULL, b = as.vector(length = 2)){
 }
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-# Calculations & Results
+# Visualizations
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
 # Midpoint Approach
-MidpointIntegration(l = l, u = u, n = n/5, FUN = pol, graphic = F)
-MidpointIteration(l = l, u = u, n = n/5, FUN = pol, graphic = T)
+MidpointIntegration(l = -4, u = 4, n = 10, FUN = pol, graphic = T)
+MidpointIteration(l = -4, u = 4, n = 10, FUN = pol, graphic = T)
 
 # MonteCarlo
-Hit_Miss_MonteCarloIntegration(l,u, FUN = pol, n = n*100, graphic = F)$Area
-Hit_Miss_MonteCarloIteration(l,u, FUN = pol, n = n*100, graphic = T)
+Hit_Miss_MonteCarloIntegration(-4,4, FUN = pol, n = 10000, graphic = F)$Area
+Hit_Miss_MonteCarloIteration(-4,4, FUN = pol, n = 10000, graphic = T)
 
-Crude_MonteCarloIntegration(l,u,pol,n = n*10, m = 15)
-Crude_MonteCarloIteration(l,u,pol,n = n*10,m = 15,T) # m is fixed here
+Crude_MonteCarloIntegration(-4,4,pol,n = 1000, m = 15)
+Crude_MonteCarloIteration(-4,4,pol,n = 1000,m = 15,T) # m is fixed here
 
-Crude_MonteCarloIntegration(l,u,pol,n = n*10, m = 30)
-Crude_MonteCarloIteration(l,u,pol,n = n*10,m = 30,T) # m is fixed here
+Crude_MonteCarloIntegration(-4,4,pol,n = 1000, m = 30)
+Crude_MonteCarloIteration(-4,4,pol,n = 1000,m = 30,T) # m is fixed here
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-# Application
+# Application - Approx. Normal Distributions CDF
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
-x      = seq(-3,3,1)
-bins   = 15*(1:7)
-cutoff = -6
-y      = vector(length=length(x)) 
+x         = seq(-6,6,1)
+bins      = 15*abs(1:length(x))
+y         = vector(length=length(x)-1) 
+plot_list = list()
 
-for(i in 1:length(x)){
-  y[i] = MidpointIntegration(l = cutoff, u = x[i], n = bins[i], FUN = dnorm, graphic = T)
+# Animation and graphics
+png(file="Test%03d.pdf", width=400, height=400)
+for(i in 1:(length(x)-1)){
+  y[i]  = MidpointIntegration(l = 0, u = 1, n = bins[i+1], FUN = IntervalShifter(dnorm,b = c(-Inf,x[i+1])), graphic = F)[1]
+  
+  x_mid = head(filter(seq(min(x),x[i+1],(x[i+1]-min(x))/(bins[i]-1)),c(0.5,0.5)),-1)
+  y_mid = dnorm(x_mid)
+  #y_mid = sapply(x_mid, function(t) MidpointIntegration(l = 0, u = 1, n = 30, FUN = IntervalShifter(dnorm,b = c(-Inf,t)), graphic = F)[1])
+  
+  # create DataFrame
+  df   = data.frame(seq(min(x),max(x),0.01), y = dnorm(seq(min(x),max(x),0.01)))
+  rect = data.frame(xl = seq(min(x),x[i+1],(x[i+1]-min(x))/(bins[i]-1))[1:length(seq(min(x),x[i+1],(x[i+1]-min(x))/(bins[i]-1)))-1], 
+                    xr = seq(min(x),x[i+1],(x[i+1]-min(x))/(bins[i]-1))[2:length(seq(min(x),x[i+1],(x[i+1]-min(x))/(bins[i]-1)))], 
+                    yu = rep(0,length(seq(min(x),x[i+1],(x[i+1]-min(x))/(bins[i]-1)))-1), 
+                    yo = y_mid )
+  
+  # Visualization of the approximation
+  g = ggplot() +
+    geom_line(aes(x = df[,1], y = df[,2]), data=df) + 
+    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+          panel.background = element_blank(), 
+          axis.line = element_line(colour = "black", arrow = arrow(length = unit(0.25, "cm")))) +
+    geom_rect(data=rect, aes(xmin=rect[,1], 
+                             xmax=rect[,2], 
+                             ymin=rect[,3], 
+                             ymax=rect[,4]),
+              fill = 'red', alpha = 0.2, col = 'blue') +
+    xlab("x") + ylab("f(x)")
+  print(g)
 }
+dev.off()
+system("convert -delay 80 *.pdf Test_1.gif")
 
-fct    = lm(y ~ poly(x, 3, raw=TRUE))
-x_new  = runif(6,-4,4)
-d      = data.frame(x = x_new, r_F = pnorm(x_new), e_F = predict(fct,data.frame(x =x_new)), Diff = pnorm(x_new)-predict(fct,data.frame(x =x_new)))
-d_plot = data.frame(x = seq(-3,3,0.01), r_F = pnorm(seq(-3,3,0.01)), e_F = predict(fct,data.frame(x =seq(-3,3,0.01))), Diff = pnorm(seq(-3,3,0.01))-predict(fct,data.frame(x =seq(-3,3,0.01))))
+fitmodel <- nls(y~a/(1 + exp(-b * (x[2:length(x)]-c))), start=list(a=1,b=1,c=0))
+params=coef(fitmodel)
+
+d_plot = data.frame(x = seq(min(x),max(x),0.01), r_F = pnorm(seq(min(x),max(x),0.01)), e_F = sigmoid(params,seq(min(x),max(x),0.01)), Diff = pnorm(seq(min(x),max(x),0.01))-sigmoid(params,seq(min(x),max(x),0.01)))
 
 g = ggplot() +
   geom_line(aes(x = x, y = r_F, col = 'black'), data=d_plot, show.legend = F) + 
@@ -431,7 +481,13 @@ g = ggplot() +
         axis.line = element_line(colour = "black", arrow = arrow(length = unit(0.25, "cm")))) +
   geom_line(aes(x = x, y = e_F, colour = 'red'), data = d_plot, show.legend = F) +
   xlab("x") + ylab("F(x)") +
-  geom_point(aes(x = x, y = y, colour = 'black'), data = data.frame(x = x, y = y), shape = 8,show.legend = F)
-
+  geom_point(aes(x = x, y = y, colour = 'black'), data = data.frame(x = x[2:length(x)], y = y), shape = 8,show.legend = F)
 
 print(g)
+
+# Test for normaility using shapiro wilks
+set.seed(10)
+y_new  = runif(50,0,1)
+x_new  = inversefit(params,y_new)
+shapiro.test(x_new)
+
