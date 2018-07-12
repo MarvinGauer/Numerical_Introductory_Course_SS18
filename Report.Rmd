@@ -5,20 +5,26 @@ author: "Marvin Gauer (580553)"
 header-includes:
 - \usepackage{titling}
 - \usepackage{amsmath}
+- \usepackage{xcolor}
+- \usepackage{hyperref}
+- \usepackage{framed}
+- \definecolor{shadecolor}{gray}{0.95}
 - \usepackage{animate}
 - \usepackage{rotating}
+- \newcommand*{\secref}[1]{Section~\ref{#1}}
 - \pretitle{\begin{center}\LARGE\includegraphics[width=5cm]{husiegel_bw.png}\\[\bigskipamount]}
 - \title{\vspace{3cm} \Huge Numerical Integration \vspace{3cm}}
 - \preauthor{\centering \Large Numerical Introductory Course \\}
 - \author{\Large Marvin Gauer (580553)}
 - \posttitle{\end{center}}
-
 output: pdf_document
 fig_caption: true
 keep_tex: yes
 fontsize: 12pt
 citation_package: natbib
 bibliography: biblio.bib
+nocite: | 
+  @Clausthal
 ---
 ```{r include = TRUE, echo = FALSE, comment = NA}
 knitr::opts_chunk$set(fig.width=2, fig.height=2)
@@ -58,7 +64,7 @@ inversefit = function(params,x){
   params[3] - log(x^(-1)-params[1])/(params[2])
 }
 
-Crude_MonteCarloIntegration = function(l = NULL, u = NULL, FUN = dnorm, n = 100, m = 10, graphic = TRUE){
+Crude_MonteCarloIntegration = function(l = NULL, u = NULL, FUN = dnorm, n = 100, m = 1, graphic = TRUE){
   
   # l,u see other functions
   # n is an integer and represents the number of iterations per bin
@@ -119,7 +125,7 @@ Crude_MonteCarloIntegration = function(l = NULL, u = NULL, FUN = dnorm, n = 100,
   return(sol)
 }
 
-Crude_MonteCarloIteration = function(l = NULL, u = NULL, FUN = dnorm, n = 100, m = 10, graphic = TRUE){
+Crude_MonteCarloIteration = function(l = NULL, u = NULL, FUN = dnorm, n = 100, m = 1, graphic = TRUE){
   
   # l,u see other functions
   # n is an integer and represents the number of iterations (min is 10) per bin
@@ -383,18 +389,26 @@ SimpsonIntegration = function(l = NULL, u = NULL, n = 10, FUN = dnorm, graphic =
 
 ```
 
+# Abstract
+
+Numerical Integration is one of the most widely used numerical methods. It is used to ...
+
+Therefore, I want to give you a brief overview over some basic numerical integration methods, namely the midpoint rule, simpson rule, crude and hit or miss monte carlo as well as an introduction to the idea of adaptive quadrature. 
+Furthermore, I want to show how one may use numerical integration methods to approximate the cumulative distribution function of a normal distribution. He we will see, that even tough just basic methods are applied, one can easily approximate the function so well, that the Shapiro-Wilks normality test may not find enough evidence to reject the null hypothesis of a normal distribution.
+
 # 1. Motivation
 
 Integration is an important operation in mathematics. Unfortunately, in real life applications one might find it extremely difficult or even impossible to solve certain integrals in a closed form. Due to the continous improvement in computational power one might address this issue by numercially approximating the integral of interest. In order to do so, several procedures have been developed, each with it's own advantages respectively disadvantages.
-In this document we want to present 5 methods for numerical integration and furthermore apply one of those methods to numerically integrate the normal distributions density in order to approximate the normals cumulative distribution function.
+In this document we want to present 5 methods for numerical integration and furthermore apply one of those methods to numerically integrate the normal distributions density in order to approximate the normals cumulative distribution function. In this application we will see, that even though basic methods are applied, one might already estimate antiderivatives reasonably well.
 
-# 2. Literature Review
+# 2. Literature Review {#sec:literature}
 
-lalalala
+Most of the sources used are textbooks, due to the fact that the majority of procedures described respectivly used in this document are already well established. One of the main sources of this document for example is @Davis. The book contains mathematically very well and precisely defined procedures and algorithms. 
+
 
 # 3. Theory
 
-In the following section I want to explain some of the most popular methods in numerical integration. These can be distingushed into one and multi-dimensional methods. Furthermore one might distinguesh numerical integration methods further into deterministic and probabilistic methods. But before I start introducing the methods of interest I will do a little recap of the bascis:
+In the following section I want to explain some of the most well known methods in numerical integration. These can be distinguished into one and multi-dimensional methods. Furthermore one might distinguish numerical integration methods further into deterministic and probabilistic methods. But before I start introducing the methods of interest I will do a little recap of the Riemann integral, since we throughout this document we are assuming, that our functions of interest are Riemann integrable.
 
 ## 3.1 Review: The Riemann Integral
 
@@ -417,17 +431,17 @@ Now we can compute the infimum and supremum of the upper and lower sum over all 
 \sup_P L(P) \leq \inf_P U(P)
 \end{equation*}
 
-In case of equality, on says that $f$ in Riemann integrable. 
+In case of equality, one says that $f$ in Riemann integrable. 
 
 ## 3.2 One-Dimensional Procedures
 
 The one dimensional procedurees elaborated on in this chapter are classified as deterministic methods.
-Throughout this document the function $f:[-4;4]\rightarrow \mathbb{R}$ with $f(x) = x^2 + 3 \cdot x + 4$ is used for visualizing the procedures introduced.
+Throughout this chapter the function $f:[-4;4]\rightarrow \mathbb{R}$ with $f(x) = x^2 + 3 \cdot x + 4$ is used for visualizing the procedures introduced. The only exception from is the adaptive algorithm, here we use a function different from $f$ described above.
 
 ### 3.2.1 Midpoint Quadrature
 
-The idea of the Midpoint Quadrature directly derives from the definition of the Riemann Integral. We therefore want to calculate the area between the $x$-axis and a limited function $f:[a;b] \rightarrow \mathbb{R}$.
-The algorithm works in the way, that we start by partitioning our interval of interest $[a;b]$ into aquidistant subintervals $a = x_0 < x_1 < ... < x_{n-1} < x_n = b$ with stepwidth $h = \frac{b-a}{n}$. Afterwards we calculate the midpoint $x^{(i)}$ within each subinterval $[x_i;x_{i+1}]$ for $i \in \{ 0,1,...,n-1\}$ and evaluate $f$ for each $x^{(i)}$.
+The idea of the midpoint quadrature directly derives from the definition of the Riemann integral. We therefore want to calculate the area between the $x$-axis and a limited function $f:[a;b] \rightarrow \mathbb{R}$.
+The algorithm works in the way, that we start by partitioning our interval of interest $[a;b]$ into equidistant subintervals $a = x_0 < x_1 < ... < x_{n-1} < x_n = b$ with stepwidth $h = \frac{b-a}{n}$. Afterwards we calculate the midpoint $x^{(i)}$ within each subinterval $[x_i;x_{i+1}]$ for $i \in \{ 0,1,...,n-1\}$ and evaluate $f$ for each $x^{(i)}$.
 For our approximation it then holds that $\int_a^bf(x)dx \approx \sum_{k=0}^{n-1} f(x^{(i)} \cdot (x_{i+1} - x_{i})$.
 
 An illustration of the procedure can be found in Figure \ref{fig:figs}.
@@ -436,15 +450,19 @@ An illustration of the procedure can be found in Figure \ref{fig:figs}.
 MidpointIntegration(l = l, u = u, n = n/5, FUN = pol, graphic = T)
 ```
 
-When numerically solving an integral one is naturally interested in the error of the approximation which will in the following be denoted by $E(f)$. In case of $f$ having a continous second derivative on $[a;b]$ meaning $f \in C_{[ a;b]}^{(2)}$, an upper bound for the error of the Midpoint quadrature can be specified as follows:
+When numerically solving an integral one is naturally interested in the error of the approximation which will in the following be denoted by $E(f)$. In case of $f$ having a continous second derivative on $[a;b]$ meaning $f \in C_{[ a;b]}^{(2)}$, an upper bound for the error of the midpoint quadrature can be specified as follows:
 
 \begin{equation*}
 E(f) = \frac{(b-a)^3}{24\cdot n^2} \cdot \max_{a\leq x \leq b}\vert f^{``}(x)\vert
 \end{equation*}
 
+The midpoint rule is exact for linear functions.
+Please note, that $E(f)$ might also be used up front to determine the needed number of subintervals $n$ in order to not exceed a certain threshold of error.
+
+
 ### 3.2.2 Simpson-Rule
 
-The Simposn-Rule is similiar to the Rectangular Quadrature, but instead of rectangles quadratic functions are used in order to calculate the area between the $x$-axis and our limited function $f:[a;b] \rightarrow \mathbb{R}$ more accurately.
+The Simposn-Rule is similiar to the Midpoint Quadrature, but instead of rectangles quadratic functions are used in order to calculate the area between the $x$-axis and our limited function $f:[a;b] \rightarrow \mathbb{R}$ more accurately.
 We again start by partitioning our interval of interest $[a;b]$ into $n$ subintervals $a = x_0 < x_1 < ... < x_{n-1} < x_n = b$ with equidistant distances which we will in the following denote by $\Delta x = \frac{b-a}{n}$. Afterwards we calculate the midpoint $x^{(i)}$ within each subinterval $[x_i;x_{i+1}]$ for $i \in \{ 0,1,...,n-1\}$.
 Now we use the 3 points $\left( x_i; f(x_i)\right)$, $\left( x^{(i)}; f(x^{(i)})\right)$ and $\left( x_{i+1}; f(x_{i+1})\right)$ within each subinterval to interpolate our quadratic functions $g_i(x):[x_i;x_{i+1}] \rightarrow \mathbb{R}$. 
 For our approximation it then holds that $\int_a^bf(x)dx \approx \frac{\Delta x}{6} \cdot \left( f(x_0) + 2 \cdot \sum_{k=1}^{n-1} f(x_k) + f(x_n) + 4 \cdot \sum_{k=0}^{n-1} f(x^{(k)})\right)$. 
@@ -454,18 +472,37 @@ SimpsonIntegration(l = l, u = u, n = n/10, FUN = pol, graphic = T)
 ```
 
 The Simpson's rule is an approximation. As with any approximation, before you
-can safely use it, you must know how good (or bad) the approximation might be.The error of this approximation will in the following be denoted by $E(f)$. In case of $f$ having a continous fourth derivative on $[a;b]$ meaning $f \in C_{[a;b]}^{(4)}$, an upper bound for the error of the Simpson's quadrature can be specified as follows:
+can safely use it, you must know how good (or bad) the approximation might be. The error of this approximation will in the following be denoted by $E(f)$. In case of $f$ having a continous fourth derivative on $[a;b]$ meaning $f \in C_{[a;b]}^{(4)}$, an upper bound for the error of the Simpson's quadrature can be specified as follows:
 
 \begin{equation*}
-E(f) \leq = \frac{(b-a)^5}{2880 \cdot n^4} \cdot \max_{a\leq x \leq b}\vert f^{(4)}(x)\vert 
+\vert E(f) \vert \leq \frac{(b-a)^5}{2880 \cdot n^4} \cdot \max_{a\leq x \leq b}\vert f^{(4)}(x)\vert 
 \end{equation*}
+
+The Simpson rule is exact for all polynomials of degree three or less. As in the case of the midpoint quadrature, one might use $E(f)$ to determine the needed number of subintervals $n$ in order to not exceed a certain threshold of error before applying the algorithm.
 
 ### 3.2.3 Adaptive Algorithm
 
-When calculating integrals numerically one might in some cases not have unlimited computational power. In this case it might not be smart to use equidstant stepwidth in your numerical integration method. In this case it might be clever to use a wider stepwidth in an area where we can approximate our function well and a narrower one where our function cannot be approximated that well.
+When calculating integrals numerically one might in some cases not have unlimited computational power. In this case it might not be smart to use an equidstant stepwidth in your numerical integration method. In this case it might be clever to use a wider stepwidth in an area where we can approximate our function well and a narrower one where our function cannot be approximated not that well.
 The adaptive algorithm solves exactly that issue by minimizing the local error (the error within each subinterval) until it reaches a certain error threshold. 
-In case of a "well behaved" functions the algorithm works just as fine as the algorithms above but outperforms when we want to numerically integrate "badly behaved" functions.
-The algorithm therefore starts with an initial number of subintervals $m$. It then approxima
+The procedure works for a limited function $f:[a;b]\rightarrow \mathbb{R}$ as stated by the pseudocode below:
+
+\begin{shaded*}
+AdaptiveRule($f$, $[a;b]$, $\varepsilon$)
+\begin{itemize}
+\item[] Set $c = \frac{b-a}{2}$ and split $[a;b]$ into $[a;c]$ and $[c;b]$
+\item[] Calculate $I_1 \approx \int_{a}^{c} f(x) dx$ and $I_2 \approx \int_{c}^{b} f(x) dx$
+\item[] If $\varepsilon_{I_1} + \varepsilon_{I_2} \leq \varepsilon$ then
+\begin{itemize}
+\item[] Return $I_1 + I_2$
+\end{itemize}
+\item[] Else
+\begin{itemize}
+\item[] Return AdaptiveRule(($f$, $[a;c]$, $\frac{\varepsilon}{2}$) + AdaptiveRule(($f$, $[c;b]$, $\frac{\varepsilon}{2}$)")
+\end{itemize}
+\end{itemize}
+\end{shaded*}
+
+It may be noted, that the crucial parts of the adaptive algorithm are the quadrature method (e.g. Simpson or Midpoint) and the corresponding error estimator. Visualized the procedure looks as follows:  
 
 ```{r figs2, fig.cap="\\label{fig:figs2} Illustration of the adaptive Midpoint Quadrature",echo=FALSE,results='hide',fig.pos="h",out.extra='',fig.align="center"}
 u2    = 6     # Upper Boundary
@@ -503,27 +540,41 @@ g = ggplot() +
 print(g)
 ```
 
+
+It may be noted, that the adaptive algorithm works just as fine as the algorithms elaborated on above in case of a "well behaved" functions, but outperforms when we want to numerically integrate "badly behaved" functions. One example of functions that are not well behaved and require for an adaptive quadrature method are functions which rise/fall suddenly in a strong manner.
+
 ## 3.3 Multi-Dimensional Procedures
 
-In lots of applications multidomensional Inetgrals need to be solved numerically. This means that we now want to calculate the integral $\int_{\Omega}f(\mathbf{x})d\mathbf{x} = \int_{a_1}^{b_1}...\int_{a_m}^{b_m}f(x_1,x_2,...,x_m)dx_1dx_2...dx_m$.
-One might have the idea, to use the quadrature rules explained above in a multidimensional setting to calculate the integral at hand, but we can easily see that this will end in the \textbf{Curse of dimensionality}. Therefore I want to concentrate on Monte Carlo integration methods going on.
-Please note that the goodness of your approximation depends on your random number generator when applying Monte Carlo integration methods. 
+In lots of applications multidomensional Integrals need to be solved numerically. This means that we now want to calculate the integral $\int_{\Omega}f(\mathbf{x})d\mathbf{x} = \int_{a_1}^{b_1}...\int_{a_m}^{b_m}f(x_1,x_2,...,x_m)dx_1dx_2...dx_m$.
+One might have the idea, to use the quadrature rules explained above in a multidimensional setting to calculate the integral at hand, but we can easily see that this will end in the \textbf{curse of dimensionality}. Therefore I want to concentrate on Monte Carlo integration methods going on.
+It may be noted, that both methods presented here result in unbiased estimator of our integral of interest.
+Please note that the goodness of your approximation depends on your pseudorandom number generator when applying Monte Carlo integration methods.
 
 ### 3.3.1 Crude
 
-The Crude Monte Carlo Integration method is a fairly simple method to calculate integrals numerically. It works in the way, that we partition $k$ bins $\left[ a_{1,j};b_{1,j}\right] \times \left[ a_{2,j} \times b_{2,j}\right] \times ... \times \left[ a_{m,j};b_{m,j}\right]$ $\forall j \in \{1,...,k \}$.
-Furthermore, one needs to generate n m-dimensional uniformally distributed points $\mathbf{x_i} = \left( x_1,...,x_m \right)$ $\forall i \in \{1,...,n\}$. In the next step, we calculate $f(\mathbf{x_i})$ $\forall i \in \{1,...,n\}$ and the means $m_i$ for each bin.
-Therefore it holds that $\int_a^bf(x)dx \approx \sum_{t = 1}^{k}\left( \prod_{l=1}^{m}\left( b_{l,t} - a_{l,t}\right)\cdot m_t\right)$
+The Crude Monte Carlo Integration method is a fairly simple method to calculate integrals numerically.
+One needs to generate n m-dimensional uniformally distributed points $\mathbf{x_i} = \left( x_1,...,x_m \right)$ $\forall i \in \{1,...,n\}$. These points are uniformly distributed on $[a_1;b_1]\times ... \times[a_m;b_m]$. In the next step, we calculate $f(\mathbf{x_i})$ $\forall i \in \{1,...,n\}$ and the corresponding mean $m = \frac{1}{n}\sum_{i=1}^{n}f(\mathbf{x_i})$.
+Therefore it holds that $\int_a^bf(x)dx \approx m \cdot \left( \prod_{l=1}^{m}\left( b_{l} - a_{l}\right)\right)$
 
 ```{r figs3, fig.cap="\\label{fig:figs3} Illustration of the Crude Monte Carlo integration method",echo=FALSE,results='hide',fig.pos="h",out.extra='',fig.align="center"}
-Crude_MonteCarloIntegration(l = l, u = u, n = 100, m = 10, FUN = pol, graphic = T)
+Crude_MonteCarloIntegration(l = l, u = u, n = 100, FUN = pol, graphic = T)
 ```
+
+As stated before, Monte Carlo is a probabilistic approach and therefore the questions of bounds for the error of approximation do not arise. Instead of error bounds, we use the variance of the random estimator to indicate the extent of the uncertainty in
+our approximation.
+Let $\hat{\theta_{CMC}} = m \cdot \left( \prod_{l=1}^{m}\left( b_{l} - a_{l}\right)\right)$ be our estimator for the integral and $V = \prod_{l=1}^{m}\left( b_{l} - a_{l}\right)$ be the volume of our base area. Then the following holds:
+
+\begin{equation*}
+\mathbb{V}[\hat{\theta_{CMC}}] = \frac{V^2}{n}\mathbb{V}[f] \hspace{1cm} with \hspace{1cm} \mathbb{V}[f] = \frac{1}{n-1} \sum_{i=1}^{n}(f(x_i)-m)^2
+\end{equation*}
+
+According to [@Davis, pp. 388 - 417] crude monte carlo exists as a last resort, especially for integrals over nonstandard domains or integrads of low order continutity. Another main advantage is, that the rate of convergence is independent of the smoothness of the integrand.
 
 ### 3.3.2 Hit or Miss
 
 On the other hand, the Hit or Miss Monte Carlo Integration method works slidly differently. Here we create $n$ $m+1$-dimensional uniformly distributed points $\left( x_{i,1},...,x_{i,m},y_i\right)$ for $i \in \{1,..,n\}$. The first $m$ dimensions are for our domain $\left[ a_{1};b_{1}\right] \times \left[ a_{2} \times b_{2}\right] \times ... \times \left[ a_{m};b_{m}\right]$ and are always uniformaly distributed on $\left[ a_{i};b_{i}\right]$ $\forall i \in \{1,...,m\}$. The $y_i$ coordinate is for our $f(\mathbf{x})$-values and these are uniformally distributed on $\left[ 0;max(f(\mathbf{x}))\right]$.
-Now the percentage of points $p$ for which holds $y_i \leq f(x_1,...,x_m)$ and the total area/vloume $A$ surrounding the graph needs to be calculated. $A$ is basically the area/volume of the domain of the generated random points.
-Therefore it holds that $\int_a^bf(x)dx \approx A \cdot p$
+Now the percentage of points $p$ for which holds $y_i \leq f(x_1,...,x_m)$ and the total area/volume $V$ surrounding the graph needs to be calculated.
+Therefore it holds that $\int_a^bf(x)dx \approx V \cdot p$
 
 ```{r figs4, fig.cap="\\label{fig:figs4} Illustration of the Hit or Miss Monte Carlo integration method ",echo=FALSE,results='hide',fig.pos="h",out.extra='',fig.align="center"}
 Hit_Miss_MonteCarloIntegration(l = l, u = u, n = 1000, FUN = pol, graphic = T)
@@ -571,7 +622,13 @@ df   = data.frame("x"              = x[2:length(x)],
 #colnames(df) <- c("x", "Number of Bins","Approx. y", "y","Error")
 ```
 
-Obviously, the quality of the answer depends on the quality of the random number generator sequence which is used.
+As for the crude monte carlo integration we are also interested in the variance of our estimator $\hat{\theta_{HM}} = V \cdot p$ for which holds:
+
+\begin{equation*}
+\mathbb{V}[\hat{\theta_{HM}}] = \frac{V \cdot p(1-p)}{n} \sum_{i=1}^{n}(f(x_i)-m)^2
+\end{equation*}
+
+It may be noted, that according to XXX the crude monte carlo method is the better method, since the variance of the estimator is always smaller for fixed $n$.
 
 ## 3.4 Integrals over infinite Intervals
 
@@ -599,14 +656,14 @@ Numerical integration is widely used by practitioners. Some of the most well kno
 \item Calculation of the Value at Risk and Expected Shortfall
 \end{itemize}
 
-The application I want to elaborate on is the approximation of the antiderivative of the normal distribution since there exists no closed form solution.
-Therefore we first need to decide on the sampling points $x_i$ for $i=1,...,N$ of our distribution. I choose all integers between -5 and 6. Due to the fact, that the function is quite well behaved there is no need to apply an adaptive algorithm. Therefore I will use the midpoint quadrature applying $15 \cdot i$ bins as a method of choice.
-Furthermore a change of variables is used in order to account for the improper integral.
+The application I want to elaborate on is the approximation of the antiderivative of the normal distributions density function since it cannot be expressed using only elementary functions. In order to do so I will use the scientific programming language $R$.
+Therefore we first need to decide on the sampling points $x_i$ for $i=1,...,N$ of our distribution. I choose all integers between -5 and 6. 
+Due to the fact, that the function is quite well behaved there is no need to apply an adaptive algorithm. Therefore I will use the midpoint quadrature as a method of choice. Since I need to solve an improper integral a change of variables is used and furthermore I will apply $15 \cdot i$ bins for each sampling point $x_i$ with $i = {1,..,12}$.
 
-To calculate $F(x)$ we now need to solve the following equation for our $N$ sampling points:
+To calculate $F(x)$ we now need to solve the following equation for our $N=12$ sampling points:
 
 \begin{equation*}
-y_i = F(x_i) \approx \int_{-\infty}^{x_i} f(x) dx \hspace{0.2cm} \forall i \in \{1,..,N\}
+y_i = F(x_i) \approx \int_{-\infty}^{x_i} f(x) dx \hspace{0.2cm} \forall i \in \{1,..,12\}
 \end{equation*}
 
 \newpage
@@ -617,6 +674,7 @@ y_i = F(x_i) \approx \int_{-\infty}^{x_i} f(x) dx \hspace{0.2cm} \forall i \in \
 \caption{Visualization of the integration}
 \label{gif}
 \end{figure}
+\hfill \href{https://github.com/MarvinGauer/Numerical_Introductory_Course_SS18}{\includegraphics[scale = 0.5]{qletlogo.pdf}}
 
 The results of our approximation can be found visualized in Figure \ref{gif} and in written form below:
 
@@ -624,50 +682,61 @@ The results of our approximation can be found visualized in Figure \ref{gif} and
 kable(df, align = 'r', caption = "\\label{tab:tab1} Results for the sampling points",col.names = c("x", "Number of Bins","Approx. y", "y","Error"), digits = 8, escape=FALSE)
 ```
 
+
 It may be noted, that the $y$ is based on R's pnorm()-function.
 Now that we have our sampling points evaluated we need to decide on a suited function to fit the points. In our case I decided to use a sigmoid function that is fitted using a non-linear least squares approach. This then yields: 
 
 \begin{equation*}
-\hat{F}(x) = \frac{\hat{a}}{1+\exp^{-\hat{b} \cdot (x-\hat{c})}} = \frac{1}{1+\exp^{-1.697 \cdot (x-0.0044)}}
+\hat{F}(x) = \frac{\hat{1}}{1+\exp^{-\hat{b} \cdot (x-\hat{c})}} = \frac{1}{1+\exp^{-1.706 \cdot x}}
 \end{equation*}
 
 \newpage
 
 After approximating our function we now need to test the goodness of fit. We will do this by applying a normality test.
-The normality test of choice is the Shapiro-Wilk test, since it is more powerful than the Anderson-Darling, Lilliefors and Kolmogorov-Smirnov test according to @Shapiro. In order to test whether there is evidence that our approximated distibution is not normal, we need to sample datapoints. For this we create 50 uniformly on $\left[0;1\right]$ distributed random variables. Then we use the inverse of our fitted function to have sample datapoints of corresponding to the approximated CDF $\hat{F}$.
-Applying the Shapiro-Wilks test to our 50 datapoints yields a p-value of 0.6666. Therefore we cannot reject the null hypothesis, meaning we could not find enough evidence to conclude, that the datapoints are not normally distributed.
+The normality test of choice is the Shapiro-Wilk test, since it is more powerful than the Anderson-Darling, Lilliefors and Kolmogorov-Smirnov test according to [@Shapiro]. In order to test whether there is evidence that our approximated distribution is not normal, we need to sample datapoints. For this we create 500 uniformly on $\left[0;1\right]$ distributed random samples. Then we use the inverse of our fitted function to have sample datapoints corresponding to the approximated CDF $\hat{F}$.
+Applying the Shapiro-Wilks test to our 500 datapoints yields a p-value of 0.347. Therefore we cannot reject the null hypothesis, meaning we could not find enough evidence to conclude, that the datapoints are not normally distributed.
 Furthermore we want to plot the approximated and R's pnorm-function. The plot can be found below and we can easily see, that only slight differences can be spotted indicating, that our approximation already fits the normal distributions CDF quite well.
 
 ```{r figs5, fig.cap="\\label{fig:figs5} Visualization of the fitted (red) and R's Normal Distributions CDF (blue)",echo=FALSE,results='hide',fig.pos="h",out.extra='',fig.align="center",fig.width=4, fig.height=4}
-fitmodel <- nls(y~a/(1 + exp(-b * (x[2:length(x)]-c))), start=list(a=1,b=1,c=0))
+fitmodel <- nls(y~a/(1 + exp(-b * (x[2:length(x)]-c))), start=list(a=1,b=1,c=0),algorithm="port", 
+                lower=c(1,0,0), upper=c(1,20,20))
 params=coef(fitmodel)
 
-x_new  = runif(20,-6,6)
-d      = data.frame(x = x_new, r_F = pnorm(x_new), e_F = sigmoid(params,x_new), Diff = pnorm(x_new)-sigmoid(params,x_new)) 
-d_plot = data.frame(x = seq(min(x),max(x),0.01), r_F = pnorm(seq(min(x),max(x),0.01)), e_F = sigmoid(params,seq(min(x),max(x),0.01)), Diff = pnorm(seq(min(x),max(x),0.01))-sigmoid(params,seq(min(x),max(x),0.01)))
+set.seed(7)
+y_new  = runif(500,0,1)
+x_new  = inversefit(params,y_new)
+shapiro.test(x_new)
+
+
+cdf_plot      = data.frame(x = seq(min(x),max(x),0.01), r_F = pnorm(seq(min(x),max(x),0.01)), e_F = sigmoid(params,seq(min(x),max(x),0.01)), Diff = pnorm(seq(min(x),max(x),0.01))-sigmoid(params,seq(min(x),max(x),0.01)))
+sample_points = data.frame(x = inversefit(params,y_new), y = sigmoid(params,x_new))
 
 g = ggplot() +
-  geom_line(aes(x = x, y = r_F, col = 'black'), data=d_plot, show.legend = F) + 
+  geom_line(aes(x = x, y = r_F, col = 'black'), data=cdf_plot, show.legend = F) + 
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
         panel.background = element_blank(), 
         axis.line = element_line(colour = "black", arrow = arrow(length = unit(0.25, "cm")))) +
-  geom_line(aes(x = x, y = e_F, colour = 'red'), data = d_plot, show.legend = F) +
+  geom_line(aes(x = x, y = e_F, colour = 'red'), data = cdf_plot, show.legend = F) +
   xlab("x") + ylab("F(x)") +
-  geom_point(aes(x = x, y = y, colour = 'black'), data = data.frame(x = x[2:length(x)], y = y), shape = 8,show.legend = F)
-
+  geom_point(aes(x = x, y = y, colour = 'black'), data = sample_points, shape = 8,show.legend = F)
 
 print(g)
 ```
 
+The points displayed on the approximated curve $\hat{F}$ are the 500 randomly sampled datapoints.
+
 # 5. Conclusion
 
-lalalala
-
-# 6. Bibliography
-
-@Clausthal
+The 5 procedures elaborated on in this document are a good basis in numerical integration. Due to the fact that the topic is very important in applications, there were many more procedures developed by the scientific community each of them with their own advantages and disadvantages. In case the reader wants to get to know more quadrature rules like ... you may want to read the books elaborated on in the [literature review](#sec:literature)
 
 
 
 
+Therefore, a dominant 
+
+
+# I Appendix
+
+
+# Bibliography
 

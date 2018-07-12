@@ -35,7 +35,7 @@ pol  = function(x){
 }
 
 n    = 30 # Max Number of Iterations
-m    = 10 # Number of Bins
+m    = 1 # Number of Bins
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 # Functions
@@ -49,7 +49,7 @@ inversefit = function(params,x){
   params[3] - log(x^(-1)-params[1])/(params[2])
 }
 
-Crude_MonteCarloIntegration = function(l = NULL, u = NULL, FUN = dnorm, n = 100, m = 10, graphic = TRUE){
+Crude_MonteCarloIntegration = function(l = NULL, u = NULL, FUN = dnorm, n = 100, m = 1, graphic = TRUE){
   
   # l,u see other functions
   # n is an integer and represents the number of iterations per bin
@@ -110,7 +110,7 @@ Crude_MonteCarloIntegration = function(l = NULL, u = NULL, FUN = dnorm, n = 100,
   return(sol)
 }
 
-Crude_MonteCarloIteration = function(l = NULL, u = NULL, FUN = dnorm, n = 100, m = 10, graphic = TRUE){
+Crude_MonteCarloIteration = function(l = NULL, u = NULL, FUN = dnorm, n = 100, m = 1, graphic = TRUE){
   
   # l,u see other functions
   # n is an integer and represents the number of iterations (min is 10) per bin
@@ -235,7 +235,7 @@ Hit_Miss_MonteCarloIteration = function(l = NULL, u = NULL, FUN = dnorm, n = 100
   return(dfg)
 }
 
-MidpointIntegration = function(l = NULL, u = NULL, n = 10, FUN = dnorm, graphic = T){
+MidpointIntegration = function(l = NULL, u = NULL, n = 10, FUN = dnorm, graphic = T, FUN_exp = NULL){
   
   # FUN is the function of interest
   
@@ -261,8 +261,13 @@ MidpointIntegration = function(l = NULL, u = NULL, n = 10, FUN = dnorm, graphic 
   if (graphic == TRUE){
     print(g)
   }
+  if(is.null(FUN_exp)){
+    error = NA 
+  } else{
+    x = seq(l,u,0.01)
+    error = (u-l)^3/(24 * n^2) * abs(max(eval(D(D(FUN_exp,"x"),"x")),na.rm = TRUE))
+  }
   
-  error = (u-l)^3/(24 * n^2) * abs(max(df$y,na.rm = TRUE))
   
   sol   = sum(y_mid %*% diff(seq(l,u,(u-l)/(n-1))))
   
@@ -306,7 +311,7 @@ MidpointIteration = function(l = NULL, u = NULL, n = 10, FUN = dnorm, graphic = 
   return(dfg)
 }
 
-SimpsonIntegration = function(l = NULL, u = NULL, n = 10, FUN = dnorm, graphic = T){
+SimpsonIntegration = function(l = NULL, u = NULL, n = 10, FUN = dnorm, graphic = T,FUN_exp = NULL){
   
   # FUN is the function of interest
   
@@ -368,23 +373,29 @@ SimpsonIntegration = function(l = NULL, u = NULL, n = 10, FUN = dnorm, graphic =
     print(g)
     
   }
-  error = (u-l)^3/(24 * n^2) * abs(max(df$y))
+  if(is.null(FUN_exp)){
+    error = NA 
+  } else{
+    x = seq(l,u,0.01)
+    error = (u-l)^5/(2880 * n^4) * abs(max(eval(D(D(D(D(FUN_exp,"x"),"x"),"x"),"x")),na.rm = TRUE))
+  }
   sol = sum(unlist(area))
   return(c(sol,error))
 }
 
-Rec_Mid = function(FUN = FUN, l = l, u = u, eps = 0.01, borders = list()){
-    m     = (l+u) / 2.0
-    left  = MidpointIntegration(l = l, u = m, n = 2, FUN = FUN, graphic = F)
-    right = MidpointIntegration(l = m, u = u, n = 2, FUN = FUN, graphic = F)
-    if(left[2] + right[2] <= eps){
-      return(left[1] + right[1])
-    }
-    return(Rec_Mid(FUN,l,m,eps/2.0) + Rec_Mid(FUN,m,u,eps/2.0))
-}
+Rec_Mid = function(FUN = FUN, l = l, u = u, eps = 0.01, FUN_exp = NULL){
   
-Adaptive_Midpoint = function(FUN = FUN, l = l, u = u, eps = 0.01){
-    return(Rec_Mid(FUN,l,u,eps))
+  Q  = MidpointIntegration(l = l, u = u, n = 2, FUN = FUN, graphic = F, FUN_exp = FUN_exp)
+  if(Q[2] <= eps){
+    return(c(Q[1], Q[2]))
+  }
+  m     = (l+u) / 2.0
+  return(Rec_Mid(FUN,l,m,eps/2.0,FUN_exp = FUN_exp) + Rec_Mid(FUN,m,u,eps/2.0,FUN_exp = FUN_exp))
+}
+
+  
+Adaptive_Midpoint = function(FUN = FUN, l = l, u = u, eps = 0.01, FUN_exp = NULL){
+    return(Rec_Mid(FUN,l,u,eps, FUN_exp = FUN_exp))
 }
 
 IntervalShifter = function(FUN = NULL, b = as.vector(length = 2)){
@@ -414,19 +425,17 @@ IntervalShifter = function(FUN = NULL, b = as.vector(length = 2)){
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
 # Midpoint Approach
-MidpointIntegration(l = -4, u = 4, n = 10, FUN = pol, graphic = T)
+MidpointIntegration(l = -4, u = 4, n = 10, FUN = pol, graphic = T, FUN_exp = expression(x^2 + 3*x + 4))
 MidpointIteration(l = -4, u = 4, n = 10, FUN = pol, graphic = T)
 
 # MonteCarlo
 Hit_Miss_MonteCarloIntegration(-4,4, FUN = pol, n = 10000, graphic = F)$Area
 Hit_Miss_MonteCarloIteration(-4,4, FUN = pol, n = 10000, graphic = T)
 
-Crude_MonteCarloIntegration(-4,4,pol,n = 1000, m = 15)
-Crude_MonteCarloIteration(-4,4,pol,n = 1000,m = 15,T) # m is fixed here
+Crude_MonteCarloIntegration(-4,4,pol,n = 1000)
+Crude_MonteCarloIteration(-4,4,pol,n = 1000,graphic = T) # m is fixed here
 
-Crude_MonteCarloIntegration(-4,4,pol,n = 1000, m = 30)
-Crude_MonteCarloIteration(-4,4,pol,n = 1000,m = 30,T) # m is fixed here
-
+SimpsonIntegration(l = -4, u = 4, n = 10, FUN = pol, graphic = T, FUN_exp = expression(x^2 + 3*x + 4))
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 # Application - Approx. Normal Distributions CDF
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
@@ -437,7 +446,7 @@ y         = vector(length=length(x)-1)
 plot_list = list()
 
 # Animation and graphics
-png(file="Test%03d.pdf", width=400, height=400)
+png(file="Integration%03d.pdf", width=400, height=400)
 for(i in 1:(length(x)-1)){
   y[i]  = MidpointIntegration(l = 0, u = 1, n = bins[i+1], FUN = IntervalShifter(dnorm,b = c(-Inf,x[i+1])), graphic = F)[1]
   
@@ -467,27 +476,83 @@ for(i in 1:(length(x)-1)){
   print(g)
 }
 dev.off()
-system("convert -delay 80 *.pdf Test_1.gif")
+system("convert -delay 80 *.pdf Integration.gif")
 
-fitmodel <- nls(y~a/(1 + exp(-b * (x[2:length(x)]-c))), start=list(a=1,b=1,c=0))
+fitmodel <- nls(y~a/(1 + exp(-b * (x[2:length(x)]-c))), start=list(a=1,b=1,c=0),algorithm="port", 
+                lower=c(1,0,0), upper=c(1,20,20))
 params=coef(fitmodel)
 
-d_plot = data.frame(x = seq(min(x),max(x),0.01), r_F = pnorm(seq(min(x),max(x),0.01)), e_F = sigmoid(params,seq(min(x),max(x),0.01)), Diff = pnorm(seq(min(x),max(x),0.01))-sigmoid(params,seq(min(x),max(x),0.01)))
+# Test for normaility using shapiro wilks
+set.seed(7)
+y_new  = runif(500,0,1)
+x_new  = inversefit(params,y_new)
+shapiro.test(x_new)
+
+
+cdf_plot      = data.frame(x = seq(min(x),max(x),0.01), r_F = pnorm(seq(min(x),max(x),0.01)), e_F = sigmoid(params,seq(min(x),max(x),0.01)), Diff = pnorm(seq(min(x),max(x),0.01))-sigmoid(params,seq(min(x),max(x),0.01)))
+sample_points = data.frame(x = inversefit(params,y_new), y = sigmoid(params,x_new))
 
 g = ggplot() +
-  geom_line(aes(x = x, y = r_F, col = 'black'), data=d_plot, show.legend = F) + 
+  geom_line(aes(x = x, y = r_F, col = 'black'), data=cdf_plot, show.legend = F) + 
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
         panel.background = element_blank(), 
         axis.line = element_line(colour = "black", arrow = arrow(length = unit(0.25, "cm")))) +
-  geom_line(aes(x = x, y = e_F, colour = 'red'), data = d_plot, show.legend = F) +
+  geom_line(aes(x = x, y = e_F, colour = 'red'), data = cdf_plot, show.legend = F) +
   xlab("x") + ylab("F(x)") +
-  geom_point(aes(x = x, y = y, colour = 'black'), data = data.frame(x = x[2:length(x)], y = y), shape = 8,show.legend = F)
+  geom_point(aes(x = x, y = y, colour = 'black'), data = sample_points, shape = 8,show.legend = F)
 
 print(g)
 
-# Test for normaility using shapiro wilks
-set.seed(10)
-y_new  = runif(50,0,1)
-x_new  = inversefit(params,y_new)
-shapiro.test(x_new)
+
+
+
+
+
+
+
+
+
+
+
+
+# create DataFrame
+df   = data.frame(seq(1,4,1), y = seq(1,4,1))
+rect = data.frame(xl = c(1,1,1,2,2,2,3,3,3), 
+                  xr = c(2,2,2,3,3,3,4,4,4), 
+                  yu = c(1,2,3,1,2,3,1,2,3), 
+                  yo = c(2,3,4,2,3,4,2,3,4) )
+
+# Visualization of the approximation
+g1 = ggplot() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black", arrow = arrow(length = unit(0.25, "cm")))) +
+  geom_rect(data=rect, aes(xmin=rect[,1], 
+                           xmax=rect[,2], 
+                           ymin=rect[,3], 
+                           ymax=rect[,4]),
+            fill = 'red', alpha = 0.2, col = 'blue') +
+  xlab(expression(paste(x[1]))) + ylab(expression(paste(x[2]))) +
+  annotate('text', x = 1.5, y = 1.5, 
+           label = paste("x[1]"),parse = TRUE,size=5) 
+rect2=rect[c(1,2,4,5),]
+g2 = ggplot() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black", arrow = arrow(length = unit(0.25, "cm")))) +
+  geom_rect(data=rect2, aes(xmin=rect2[,1], 
+                           xmax=rect2[,2], 
+                           ymin=rect2[,3], 
+                           ymax=rect2[,4]),
+            fill = 'red', alpha = 0.2, col = 'blue') +
+  xlab(expression(paste(x[1]))) + ylab(expression(paste(x[2]))) +
+  annotate('text', x = 1.5, y = 1.5, 
+           label = paste("x[1]"),parse = TRUE,size=5) 
+
+grid.arrange(g1,g2,ncol=2)
+
+
+
+
+
 
