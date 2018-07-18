@@ -13,7 +13,7 @@ graphics.off()
 # Install and load packages
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
-libraries = c("ggplot2", "gridExtra")
+libraries = c("ggplot2", "gridExtra", "nortest")
 lapply(libraries, function(x) 
   if (!(x %in% installed.packages())) {
     install.packages(x)
@@ -486,8 +486,11 @@ params=coef(fitmodel)
 set.seed(7)
 y_new  = runif(500,0,1)
 x_new  = inversefit(params,y_new)
-shapiro.test(x_new)
 
+shapiro.test(x_new)
+ad.test(x_new)
+lillie.test(x_new)
+ks.test(x_new,"pnorm")
 
 cdf_plot      = data.frame(x = seq(min(x),max(x),0.01), r_F = pnorm(seq(min(x),max(x),0.01)), e_F = sigmoid(params,seq(min(x),max(x),0.01)), Diff = pnorm(seq(min(x),max(x),0.01))-sigmoid(params,seq(min(x),max(x),0.01)))
 sample_points = data.frame(x = inversefit(params,y_new), y = sigmoid(params,x_new))
@@ -512,44 +515,6 @@ print(g)
 
 
 
-
-
-
-# create DataFrame
-df   = data.frame(seq(1,4,1), y = seq(1,4,1))
-rect = data.frame(xl = c(1,1,1,2,2,2,3,3,3), 
-                  xr = c(2,2,2,3,3,3,4,4,4), 
-                  yu = c(1,2,3,1,2,3,1,2,3), 
-                  yo = c(2,3,4,2,3,4,2,3,4) )
-
-# Visualization of the approximation
-g1 = ggplot() +
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
-        panel.background = element_blank(), 
-        axis.line = element_line(colour = "black", arrow = arrow(length = unit(0.25, "cm")))) +
-  geom_rect(data=rect, aes(xmin=rect[,1], 
-                           xmax=rect[,2], 
-                           ymin=rect[,3], 
-                           ymax=rect[,4]),
-            fill = 'red', alpha = 0.2, col = 'blue') +
-  xlab(expression(paste(x[1]))) + ylab(expression(paste(x[2]))) +
-  annotate('text', x = 1.5, y = 1.5, 
-           label = paste("x[1]"),parse = TRUE,size=5) 
-rect2=rect[c(1,2,4,5),]
-g2 = ggplot() +
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
-        panel.background = element_blank(), 
-        axis.line = element_line(colour = "black", arrow = arrow(length = unit(0.25, "cm")))) +
-  geom_rect(data=rect2, aes(xmin=rect2[,1], 
-                           xmax=rect2[,2], 
-                           ymin=rect2[,3], 
-                           ymax=rect2[,4]),
-            fill = 'red', alpha = 0.2, col = 'blue') +
-  xlab(expression(paste(x[1]))) + ylab(expression(paste(x[2]))) +
-  annotate('text', x = 1.5, y = 1.5, 
-           label = paste("x[1]"),parse = TRUE,size=5) 
-
-grid.arrange(g1,g2,ncol=2)
 
 
 
