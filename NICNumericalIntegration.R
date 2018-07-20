@@ -34,9 +34,6 @@ pol  = function(x){
   return(y)
 }
 
-n    = 30 # Max Number of Iterations
-m    = 1 # Number of Bins
-
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 # Functions
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
@@ -434,7 +431,7 @@ Hit_Miss_MonteCarloIntegration(-4,4, FUN = pol, n = 10000, graphic = F)$Area
 Hit_Miss_MonteCarloIteration(-4,4, FUN = pol, n = 10000, graphic = T)
 
 Crude_MonteCarloIntegration(-4,4,pol,n = 10000)
-Crude_MonteCarloIteration(-4,4,pol,n = 10000,graphic = T) # m is fixed here
+Crude_MonteCarloIteration(-4,4,pol,n = 10000,graphic = T)
 
 SimpsonIntegration(l = -4, u = 4, n = 10, FUN = pol, graphic = T, FUN_exp = expression(x^2 + 3*x + 4))
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
