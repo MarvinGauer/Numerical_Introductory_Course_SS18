@@ -383,19 +383,20 @@ SimpsonIntegration = function(l = NULL, u = NULL, n = 10, FUN = dnorm, graphic =
   return(c(sol,error))
 }
 
-Rec_Mid = function(FUN = FUN, l = l, u = u, eps = 0.01, FUN_exp = NULL){
+Rec_Simp = function(FUN = FUN, l = l, u = u, eps = 0.01, FUN_exp = NULL, whole  = SimpsonIntegration(l = l, u = u, n = 2, FUN = FUN, graphic = F, FUN_exp = FUN_exp)){
   
-  Q  = MidpointIntegration(l = l, u = u, n = 2, FUN = FUN, graphic = F, FUN_exp = FUN_exp)
-  if(Q[2] <= eps){
-    return(c(Q[1], Q[2]))
-  }
   m     = (l+u) / 2.0
-  return(Rec_Mid(FUN,l,m,eps/2.0,FUN_exp = FUN_exp) + Rec_Mid(FUN,m,u,eps/2.0,FUN_exp = FUN_exp))
+  Q11 = SimpsonIntegration(l = l, u = m, n = 2, FUN = FUN, graphic = F, FUN_exp = FUN_exp)
+  Q12 = SimpsonIntegration(l = m, u = u, n = 2, FUN = FUN, graphic = F, FUN_exp = FUN_exp)
+
+  if(abs(Q11[1] + Q12[1] - whole[1]) <= 15*eps){
+    return(Q11[1] + Q12[1] + (Q11[1] + Q12[1] - whole[1])/15.0)
+  }
+  return(Rec_Simp(FUN,l,m,eps/2.0,FUN_exp = FUN_exp, whole = Q11) + Rec_Simp(FUN,m,u,eps/2.0,FUN_exp = FUN_exp, whole = Q12))
 }
 
-  
-Adaptive_Midpoint = function(FUN = FUN, l = l, u = u, eps = 0.01, FUN_exp = NULL){
-    return(Rec_Mid(FUN,l,u,eps, FUN_exp = FUN_exp))
+Adaptive_Simpson = function(FUN = FUN, l = l, u = u, eps = 0.01, FUN_exp = NULL){
+    return(Rec_Simp(FUN,l,u,eps, FUN_exp = FUN_exp, SimpsonIntegration(l = l, u = u, n = 2, FUN = FUN, graphic = F, FUN_exp = FUN_exp)))
 }
 
 IntervalShifter = function(FUN = NULL, b = as.vector(length = 2)){
@@ -432,8 +433,8 @@ MidpointIteration(l = -4, u = 4, n = 10, FUN = pol, graphic = T)
 Hit_Miss_MonteCarloIntegration(-4,4, FUN = pol, n = 10000, graphic = F)$Area
 Hit_Miss_MonteCarloIteration(-4,4, FUN = pol, n = 10000, graphic = T)
 
-Crude_MonteCarloIntegration(-4,4,pol,n = 1000)
-Crude_MonteCarloIteration(-4,4,pol,n = 1000,graphic = T) # m is fixed here
+Crude_MonteCarloIntegration(-4,4,pol,n = 10000)
+Crude_MonteCarloIteration(-4,4,pol,n = 10000,graphic = T) # m is fixed here
 
 SimpsonIntegration(l = -4, u = 4, n = 10, FUN = pol, graphic = T, FUN_exp = expression(x^2 + 3*x + 4))
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
