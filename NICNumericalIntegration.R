@@ -447,7 +447,7 @@ y         = vector(length=length(x)-1)
 plot_list = list()
 
 # Animation and graphics
-png(file="Integration%03d.pdf", width=400, height=400)
+#png(file="Integration%03d.pdf", width=400, height=400)
 for(i in 1:(length(x)-1)){
   y[i]  = MidpointIntegration(l = 0, u = 1, n = bins[i+1], FUN = IntervalShifter(dnorm,b = c(-Inf,x[i+1])), graphic = F)[1]
   
@@ -476,8 +476,8 @@ for(i in 1:(length(x)-1)){
     xlab("x") + ylab("f(x)")
   print(g)
 }
-dev.off()
-system("convert -delay 80 *.pdf Integration.gif")
+#dev.off()
+#system("convert -delay 80 *.pdf Integration.gif")
 
 fitmodel <- nls(y~a/(1 + exp(-b * (x[2:length(x)]-c))), start=list(a=1,b=1,c=0),algorithm="port", 
                 lower=c(1,0,0), upper=c(1,20,20))
