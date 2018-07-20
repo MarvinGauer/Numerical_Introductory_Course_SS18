@@ -418,7 +418,7 @@ Integration is an important operation in mathematics. Unfortunately, in real lif
 Most of the sources used for this document are textbooks. This is due to the fact that the majority of procedures described respectivly used in this document are already well established and recently published papers on numerical integration usually deal with very specific applications and are therefore not very helpful in case of an introduction. 
 One of the main sources of this document is [@Davis]. The book contains mathematically very well and precisely defined procedures and algorithms and is most often also cited by other authors from the field of numerical integration. Other well written sources used which explicitly describe Monte Carlo methods are [@Gentle] and 
 [@Rizzo]. Even though numerical integration is not the main topic of these books they still describe monte carlo methods and the application of numerical integration very well.
-Even tough the papers are quite old [@Lyes] and [@Kuncir] are still interesting to read especially if you are new to the topic. Both deal with the adaptive simpson quadrature elaborated in [Section 3.2.3.](#sec:bib)
+Two quite old but still very well written papers are [@Lyes] and [@Kuncir]. Both deal with the adaptive simpson quadrature elaborated in [Section 3.2.3.](#sec:bib) and are especially informative for beginners on the topic.
 
 # 3. Theory
 
@@ -476,7 +476,7 @@ Please note, that $E(f)$ might also be used up front to determine the needed num
 
 ### 3.2.2 Simpson-Rule
 
-The Simposn-Rule is similiar to the Midpoint Quadrature, but instead of rectangles quadratic functions are used in order to calculate the area between the $x$-axis and our limited function $f:[a;b] \rightarrow \mathbb{R}$ more accurately.
+The simposn rule is similiar to the midpoint quadrature, but instead of rectangles quadratic functions are used in order to calculate the area between the $x$-axis and our limited function $f:[a;b] \rightarrow \mathbb{R}$ more accurately.
 We again start by partitioning our interval of interest $[a;b]$ into $n$ subintervals $a = x_0 < x_1 < ... < x_{n-1} < x_n = b$ with equidistant distances which we will in the following denote by $\Delta x = \frac{b-a}{n}$. Afterwards we calculate the midpoint $x^{(i)}$ within each subinterval $[x_i;x_{i+1}]$ for $i \in \{ 0,1,...,n-1\}$.
 Now we use the 3 points $\left( x_i; f(x_i)\right)$, $\left( x^{(i)}; f(x^{(i)})\right)$ and $\left( x_{i+1}; f(x_{i+1})\right)$ within each subinterval to interpolate our quadratic functions $g_i(x):[x_i;x_{i+1}] \rightarrow \mathbb{R}$. 
 For our approximation it then holds that $\int_a^bf(x)dx \approx \frac{\Delta x}{6} \cdot \left( f(x_0) + 2 \cdot \sum_{k=1}^{n-1} f(x_k) + f(x_n) + 4 \cdot \sum_{k=0}^{n-1} f(x^{(k)})\right)$. \newpage
@@ -504,10 +504,10 @@ The Simpson rule is exact for all polynomials of degree three or less. As in the
 When calculating integrals numerically one might in some cases not have unlimited computational power. In this case it might not be smart to use an equidstant stepwidth in your numerical integration method. In this case it might be clever to use a wider stepwidth in an area where we can approximate our integral well and a narrower one where our integral cannot be approximated that well.
 The adaptive algorithm solves exactly that issue by choosing the subintervals based on the local behavior of the integrand.
 
-One example of an adaptive algorithm would be the adaptive simpson quadrature. There are several versions of this adaptive routine, but the one I want to elaborate on is the one published by @Lyes. Below you can find the pseudocode for a limited function $f:[a;b]\rightarrow \mathbb{R}$. \newpage
+One example of an adaptive algorithm would be the adaptive simpson quadrature. There are several versions of this adaptive routine, but the one I want to elaborate on is the one published by @Lyes. Below you can find the pseudocode for a limited function $f:[a;b]\rightarrow \mathbb{R}$ and an error threshold $\varepsilon$. \newpage
 
 \begin{shaded*}
-Adaptive($f$, $[a;b]$, $\varepsilon$, $I \approx \int_a^bf(x)dx$)
+AdaptiveSimpson($f$, $[a;b]$, $\varepsilon$, $I \approx \int_a^bf(x)dx$)
 \begin{itemize}
 \item[] Set $m = \frac{a+b}{2}$
 \item[] Calculate $I_1 \approx \int_{a}^{m} f(x) dx$ and $I_2 \approx \int_{m}^{b} f(x) dx$ using composite simpson quadrature
@@ -517,7 +517,7 @@ Adaptive($f$, $[a;b]$, $\varepsilon$, $I \approx \int_a^bf(x)dx$)
 \end{itemize}
 \item[] Else
 \begin{itemize}
-\item[] Return Adaptive($f$, $[a;m]$, $\frac{\varepsilon}{2}$,$I_1 \approx \int_{a}^{m} f(x) dx$) + Adaptive($f$, $[m;b]$, $\frac{\varepsilon}{2}$, $I_2 \approx \int_{m}^{b} f(x) dx$)
+\item[] Return AdaptiveSimpson($f$, $[a;m]$, $\frac{\varepsilon}{2}$,$I_1$) + AdaptiveSimpson($f$, $[m;b]$, $\frac{\varepsilon}{2}$, $I_2$)
 \end{itemize}
 \end{itemize}
 \end{shaded*}
@@ -572,7 +572,7 @@ In lots of applications multidimensional integrals need to be solved numerically
 One might have the idea, to use the quadrature rules explained above in a multidimensional setting to calculate the integral at hand, but we can easily see that this will end in the \textbf{curse of dimensionality} (see [appendix](#sec:appendix) for an example illustration). Therefore I want to concentrate on monte carlo integration methods going on.
 It may be noted, that both methods presented here result in unbiased estimators of our integral of interest.
 Please note that the goodness of your approximation depends on your pseudorandom number generator when applying monte carlo integration methods. Furthermore, for illustration we use one-dimensional integrals for simplicity, but according to 
-[@Gentle, page 233] Monte Carlo integration methods should ordinarily only be used for multi-dimensional integrals.
+[@Gentle, page 233] monte carlo integration methods should ordinarily only be used for multi-dimensional integrals.
 
 ### 3.3.1 Crude
 
