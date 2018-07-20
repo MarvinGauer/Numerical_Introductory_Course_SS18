@@ -1,0 +1,29 @@
+Name of Quantlet:  NICNumericalIntegration
+
+ 
+
+Published in:      "Numerical Introductory Course (SS 18)"
+
+  
+
+Description:       „Contains functions to numerically calculate integrals and an application“
+
+ 
+
+Keywords:          „adaptive, simpson, midpoint, monte carlo"
+
+
+
+See also :         
+
+
+
+Author:            Marvin Gauer
+
+  
+
+Submitted:         Fri, July 20 2018 by Marvin Gauer
+
+  
+
+Datafile:          R Script
